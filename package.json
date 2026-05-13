@@ -46,6 +46,7 @@
   "build": {
     "appId": "me.fortivpngui.app",
     "productName": "fortivpngui",
+    "icon": "build/icons",
     "directories": {
       "output": "release"
     },
@@ -60,12 +61,8 @@
       "executableName": "fortivpngui",
       "maintainer": "fortivpngui@localhost",
       "desktop": {
-        "entry": {
-          "Name": "FortiVPN GUI",
-          "Comment": "VPN client using openfortivpn",
-          "Categories": "Network;VPN;",
-          "StartupWMClass": "fortivpngui"
-        }
+        "Name": "FortiVPN GUI",
+        "StartupWMClass": "fortivpngui"
       }
     },
     "deb": {
