@@ -5,6 +5,8 @@ import path from "path";
 export default defineConfig({
   plugins: [react()],
   root: "src/renderer",
+  /** Project-root public/ (icon.svg, etc.) copied to dist/ on build */
+  publicDir: path.resolve(__dirname, "public"),
   base: "./",
   build: {
     outDir: path.resolve(__dirname, "dist"),

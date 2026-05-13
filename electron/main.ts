@@ -13,6 +13,26 @@ import { CHANGELOG_REV } from "./config.js";
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 
+/** SVG copied to dist/ on build; duplicate under resources/ for packaged app. */
+function resolveAppIconPath(): string | undefined {
+  const candidates = [
+    path.join(__dirname, "../resources/icon.svg"),
+    path.join(__dirname, "../dist/icon.svg"),
+    path.join(__dirname, "../public/icon.svg"),
+  ];
+  for (const p of candidates) {
+    if (fs.existsSync(p)) return p;
+  }
+  return undefined;
+}
+
+function createAppNativeIcon(): Electron.NativeImage | undefined {
+  const p = resolveAppIconPath();
+  if (!p) return undefined;
+  const img = nativeImage.createFromPath(p);
+  return img.isEmpty() ? undefined : img;
+}
+
 function resolveOpenfortivpn(): string | null {
   const r = spawnSync("which", ["openfortivpn"], { encoding: "utf8" });
   if (r.status === 0 && r.stdout.trim()) return r.stdout.trim();
@@ -24,6 +44,7 @@ function createWindow() {
     width: 1024,
     height: 720,
     autoHideMenuBar: true,
+    icon: createAppNativeIcon(),
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
@@ -61,10 +82,22 @@ function createWindow() {
 }
 
 function buildTray() {
-  const iconPath = path.join(__dirname, "../resources/tray.png");
-  if (!fs.existsSync(iconPath)) return;
-  const img = nativeImage.createFromPath(iconPath);
-  tray = new Tray(img);
+  const size = process.platform === "darwin" ? 22 : 24;
+  let trayImg: Electron.NativeImage | null = null;
+  const svgPath = resolveAppIconPath();
+  if (svgPath) {
+    const fromSvg = nativeImage.createFromPath(svgPath);
+    if (!fromSvg.isEmpty()) {
+      const resized = fromSvg.resize({ width: size, height: size });
+      if (!resized.isEmpty()) trayImg = resized;
+    }
+  }
+  const pngPath = path.join(__dirname, "../resources/tray.png");
+  if ((!trayImg || trayImg.isEmpty()) && fs.existsSync(pngPath)) {
+    trayImg = nativeImage.createFromPath(pngPath);
+  }
+  if (!trayImg || trayImg.isEmpty()) return;
+  tray = new Tray(trayImg);
   tray.setToolTip("FortiVPN GUI");
   const menu = Menu.buildFromTemplate([
     { label: "Show", click: () => mainWindow?.show() },

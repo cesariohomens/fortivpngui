@@ -8,7 +8,7 @@
     "name": "Cesário Mil-Homens",
     "email": "cesario@cesariogarcia.com"
   },
-  "license": "GPL-3.0",
+  "license": "MIT",
   "scripts": {
     "dev": "vite",
     "build:renderer": "vite build",

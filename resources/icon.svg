@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-label="FortiVPN GUI">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#29b6f6"/>
+      <stop offset="55%" stop-color="#0288d1"/>
+      <stop offset="100%" stop-color="#01579b"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.35"/>
+      <stop offset="40%" stop-color="#ffffff" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="soft" x="-8%" y="-8%" width="116%" height="116%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="12" result="b"/>
+      <feOffset dx="0" dy="10" in="b" result="o"/>
+      <feMerge>
+        <feMergeNode in="o"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <!-- macOS-style rounded tile (~22% corner radius) -->
+  <rect x="64" y="64" width="896" height="896" rx="200" ry="200" fill="url(#bg)" filter="url(#soft)"/>
+  <rect x="64" y="64" width="896" height="896" rx="200" ry="200" fill="url(#shine)"/>
+  <!-- Shield + link curve (VPN) -->
+  <g fill="none" stroke="#e1f5fe" stroke-width="36" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M512 280 L688 360 V520 Q688 660 512 760 Q336 660 336 520 V360 Z" fill="rgba(255,255,255,0.12)" stroke="#ffffff"/>
+    <path d="M420 520 Q512 420 604 520" opacity="0.95"/>
+    <circle cx="420" cy="520" r="28" fill="#ffffff" stroke="none"/>
+    <circle cx="604" cy="520" r="28" fill="#ffffff" stroke="none"/>
+  </g>
+</svg>
