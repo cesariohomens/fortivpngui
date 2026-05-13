@@ -1,0 +1,204 @@
+import fs from "fs";
+import path from "path";
+import ini from "ini";
+import { expandHome, NAME_VALIDATOR } from "./config.js";
+import { aes128Decrypt, aes128Encrypt } from "./crypto-aes.js";
+import { readMainSettings } from "./settings-service.js";
+import * as keychain from "./keychain-service.js";
+import type { VpnProfile, DeviceType } from "./types.js";
+
+function iniBool(v: unknown): boolean {
+  if (v === true) return true;
+  if (v === false) return false;
+  const s = String(v).toLowerCase();
+  return s === "true" || s === "1";
+}
+
+function deviceFromInt(n: number): DeviceType {
+  return n === 1 ? "barracuda" : "fortigate";
+}
+
+function deviceToInt(d: DeviceType): number {
+  return d === "barracuda" ? 1 : 0;
+}
+
+async function getAesKeys(): Promise<{ key: string; iv: string }> {
+  const m = readMainSettings();
+  if (m.use_system_password_store) {
+    const k = await keychain.keytarGet("aeskey");
+    const iv = await keychain.keytarGet("aesiv");
+    if (k && iv) return { key: k, iv };
+  }
+  return { key: m.aeskey, iv: m.aesiv };
+}
+
+export async function readProfileFromFile(
+  filePath: string,
+  origin: "local" | "global",
+  includePassword: boolean
+): Promise<VpnProfile | null> {
+  const name = path.basename(filePath, ".conf");
+  if (!NAME_VALIDATOR.test(name)) return null;
+  const o = ini.parse(fs.readFileSync(filePath, "utf8")) as Record<string, Record<string, string>>;
+  const vpn = o.vpn || {};
+  const cert = o.cert || {};
+  const opt = o.options || {};
+  const m = readMainSettings();
+  const aes = includePassword && !m.use_system_password_store ? await getAesKeys() : null;
+  let password = "";
+  if (includePassword) {
+    if (m.use_system_password_store) {
+      password = (await keychain.keytarGet(`vpn:${name}`)) || "";
+    } else if (aes && vpn.password) {
+      password = aes128Decrypt(vpn.password, aes.key, aes.iv);
+    }
+  }
+  return {
+    name: vpn.name || name,
+    origin,
+    device_type: deviceFromInt(parseInt(String(vpn.device_type || "0"), 10) || 0),
+    gateway_host: vpn.gateway_host || "",
+    gateway_port: parseInt(String(vpn.gateway_port || "443"), 10) || 443,
+    username: vpn.username || "",
+    password,
+    otp: "",
+    realm: opt.realm || "",
+    set_routes: iniBool(opt.set_routes),
+    set_dns: iniBool(opt.set_dns),
+    half_internet_routers: iniBool(opt.half_internet_routers),
+    persistent: iniBool(vpn.persistent),
+    ca_file: cert.ca_file || "",
+    user_cert: cert.user_cert || "",
+    user_key: cert.user_key || "",
+    trusted_cert: cert.trusted_cert || "",
+    verify_cert: iniBool(cert.verify_cert),
+    debug: iniBool(opt.debug),
+    autostart: iniBool(opt.autostart),
+    always_ask_otp: iniBool(opt.always_ask_otp),
+    otp_prompt: opt.otp_prompt || "",
+    otp_delay: parseInt(String(opt.otp_delay || "0"), 10) || 0,
+    pppd_no_peerdns: iniBool(opt.pppd_no_peerdns),
+    pppd_accept_remote: iniBool(opt.pppd_accept_remote),
+    pppd_log_file: opt.pppd_log_file || "",
+    pppd_plugin_file: opt.pppd_plugin_file || "",
+    pppd_ifname: opt.pppd_ifname || "",
+    pppd_ipparam: opt.pppd_ipparam || "",
+    pppd_call: opt.pppd_call || "",
+    insecure_ssl: iniBool(opt.insecure_ssl),
+    seclevel1: iniBool(opt.seclevel1),
+    min_tls: opt.min_tls || "default",
+    trust_all_gw_certs: iniBool(cert.trust_all_gw_certs),
+  };
+}
+
+export async function listProfiles(): Promise<VpnProfile[]> {
+  const m = readMainSettings();
+  const dirs: { origin: "local" | "global"; dir: string }[] = [
+    { origin: "local", dir: expandHome(m.localvpnprofiles) },
+    { origin: "global", dir: expandHome(m.globalvpnprofiles) },
+  ];
+  const out: VpnProfile[] = [];
+  for (const { origin, dir } of dirs) {
+    if (!fs.existsSync(dir)) continue;
+    for (const f of fs.readdirSync(dir)) {
+      if (!f.endsWith(".conf")) continue;
+      const p = await readProfileFromFile(path.join(dir, f), origin, true);
+      if (p) out.push(p);
+    }
+  }
+  return out.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export async function saveProfileLocal(profile: VpnProfile): Promise<void> {
+  if (!NAME_VALIDATOR.test(profile.name.trim())) {
+    throw new Error("Invalid profile name (min 3 chars, allowed: letters, numbers, space, -, _)");
+  }
+  const m = readMainSettings();
+  const dir = expandHome(m.localvpnprofiles);
+  fs.mkdirSync(dir, { recursive: true });
+  const aes = await getAesKeys();
+  let encPass = "";
+  if (m.use_system_password_store) {
+    await keychain.keytarSet(`vpn:${profile.name}`, profile.password);
+    encPass = "";
+  } else {
+    encPass = aes128Encrypt(profile.password.trim(), aes.key, aes.iv);
+  }
+  const obj: Record<string, Record<string, string | number | boolean>> = {
+    vpn: {
+      name: profile.name.trim(),
+      gateway_host: profile.gateway_host.trim(),
+      gateway_port: profile.gateway_port || 443,
+      username: profile.username.trim(),
+      password: encPass,
+      persistent: profile.persistent,
+      device_type: deviceToInt(profile.device_type),
+    },
+    cert: {
+      ca_file: profile.ca_file,
+      user_cert: profile.user_cert,
+      user_key: profile.user_key,
+      verify_cert: profile.verify_cert,
+      trusted_cert: profile.trusted_cert,
+      trust_all_gw_certs: profile.trust_all_gw_certs,
+    },
+    options: {
+      set_routes: profile.set_routes,
+      set_dns: profile.set_dns,
+      pppd_no_peerdns: profile.pppd_no_peerdns,
+      pppd_accept_remote: profile.pppd_accept_remote,
+      insecure_ssl: profile.insecure_ssl,
+      debug: profile.debug,
+      realm: profile.realm,
+      autostart: profile.autostart,
+      always_ask_otp: profile.always_ask_otp,
+      otp_prompt: profile.otp_prompt,
+      otp_delay: profile.otp_delay,
+      half_internet_routers: profile.half_internet_routers,
+      pppd_log_file: profile.pppd_log_file,
+      pppd_plugin_file: profile.pppd_plugin_file,
+      pppd_ifname: profile.pppd_ifname,
+      pppd_ipparam: profile.pppd_ipparam,
+      pppd_call: profile.pppd_call,
+      seclevel1: profile.seclevel1,
+      min_tls: profile.min_tls,
+    },
+  };
+  fs.writeFileSync(path.join(dir, `${profile.name.trim()}.conf`), ini.stringify(obj), { mode: 0o600 });
+}
+
+export async function getProfilePassword(name: string, origin: "local" | "global"): Promise<string> {
+  const m = readMainSettings();
+  if (m.use_system_password_store) {
+    return (await keychain.keytarGet(`vpn:${name}`)) || "";
+  }
+  const dir = expandHome(origin === "local" ? m.localvpnprofiles : m.globalvpnprofiles);
+  const f = path.join(dir, `${name}.conf`);
+  const p = await readProfileFromFile(f, origin, true);
+  return p?.password || "";
+}
+
+export async function deleteProfileLocal(name: string): Promise<boolean> {
+  const m = readMainSettings();
+  const f = path.join(expandHome(m.localvpnprofiles), `${name}.conf`);
+  if (fs.existsSync(f)) {
+    fs.unlinkSync(f);
+    await keychain.keytarDelete(`vpn:${name}`).catch(() => {});
+    return true;
+  }
+  return false;
+}
+
+export async function renameProfileLocal(oldName: string, newName: string): Promise<void> {
+  const m = readMainSettings();
+  const dir = expandHome(m.localvpnprofiles);
+  const from = path.join(dir, `${oldName}.conf`);
+  const to = path.join(dir, `${newName}.conf`);
+  if (fs.existsSync(to)) throw new Error("Target profile exists");
+  fs.renameSync(from, to);
+  const pw = await keychain.keytarGet(`vpn:${oldName}`);
+  if (pw) {
+    await keychain.keytarDelete(`vpn:${oldName}`);
+    await keychain.keytarSet(`vpn:${newName}`, pw);
+  }
+}

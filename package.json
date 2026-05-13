@@ -1,0 +1,81 @@
+{
+  "name": "fortivpngui",
+  "version": "0.1.0",
+  "description": "Desktop VPN GUI for FortiGate (openfortivpn) and Barracuda — Electron + Material UI",
+  "main": "dist-electron/main.js",
+  "homepage": "https://github.com/cesariohomens/fortivpngui",
+  "author": {
+    "name": "Cesário Mil-Homens",
+    "email": "cesario@cesariogarcia.com"
+  },
+  "license": "GPL-3.0",
+  "scripts": {
+    "dev": "vite",
+    "build:renderer": "vite build",
+    "build:electron": "tsc -p tsconfig.electron.json",
+    "build": "npm run build:renderer && npm run build:electron",
+    "start": "npm run build && electron --no-sandbox .",
+    "electron:dev": "concurrently -k \"vite\" \"wait-on http://localhost:5173 && npm run build:electron && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electron --no-sandbox .\"",
+    "dist": "npm run build && electron-builder --linux deb",
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.0",
+    "@mui/icons-material": "^6.4.0",
+    "@mui/material": "^6.4.0",
+    "ini": "^5.0.0",
+    "keytar": "^7.9.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/ini": "^4.1.1",
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^9.1.0",
+    "cross-env": "^7.0.3",
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.3",
+    "wait-on": "^8.0.1"
+  },
+  "build": {
+    "appId": "me.fortivpngui.app",
+    "productName": "fortivpngui",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "resources/**/*"
+    ],
+    "linux": {
+      "target": ["deb"],
+      "category": "Network",
+      "executableName": "fortivpngui",
+      "maintainer": "fortivpngui@localhost",
+      "desktop": {
+        "entry": {
+          "Name": "FortiVPN GUI",
+          "Comment": "VPN client using openfortivpn",
+          "Categories": "Network;VPN;",
+          "StartupWMClass": "fortivpngui"
+        }
+      }
+    },
+    "deb": {
+      "depends": [
+        "openfortivpn",
+        "ppp",
+        "sudo",
+        "libsecret-1-0"
+      ],
+      "afterInstall": "resources/deb/postinst.sh"
+    }
+  }
+}

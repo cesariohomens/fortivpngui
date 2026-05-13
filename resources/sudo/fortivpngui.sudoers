@@ -1,0 +1,3 @@
+# Template only — install to /etc/sudoers.d/ with visudo after editing USER.
+# Replace YOUR_USERNAME with your login name.
+YOUR_USERNAME ALL=(root) NOPASSWD: /usr/bin/openfortivpn *
