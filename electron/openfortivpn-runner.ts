@@ -1,7 +1,7 @@
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { spawn, ChildProcess } from "child_process";
+import { spawn, spawnSync, ChildProcess } from "child_process";
 import type { VpnProfile } from "./types.js";
 import { readMainSettings } from "./settings-service.js";
 
@@ -11,13 +11,34 @@ export interface OpenfortivpnLog {
   stream: "stdout" | "stderr";
 }
 
+/** SHA-256 gateway cert digests for `trusted-cert` lines (64 hex chars, lowercase). */
+export function parseTrustedCertDigests(raw: string | undefined | null): string[] {
+  if (!raw?.trim()) return [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const token of raw.split(/[\s,;\n\r]+/).filter(Boolean)) {
+    let t = token.trim();
+    const prefixed = t.match(/^(?:sha256:|0x)([0-9a-fA-F]{64})$/i);
+    if (prefixed) t = prefixed[1];
+    if (/^[0-9a-fA-F]{64}$/.test(t)) {
+      const lo = t.toLowerCase();
+      if (!seen.has(lo)) {
+        seen.add(lo);
+        out.push(lo);
+      }
+    }
+  }
+  return out;
+}
+
 /** Build openfortivpn-compatible config file (key names with hyphens per upstream). */
-export function buildOpenfortivpnConfig(profile: VpnProfile, password: string): string {
+export function buildOpenfortivpnConfig(profile: VpnProfile, password: string, otp?: string): string {
   const lines: string[] = [];
   lines.push(`host = ${profile.gateway_host}`);
   lines.push(`port = ${profile.gateway_port || 443}`);
   if (profile.username) lines.push(`username = ${profile.username}`);
   if (password) lines.push(`password = ${password}`);
+  if (otp) lines.push(`otp = ${otp}`);
   if (profile.realm) lines.push(`realm = ${profile.realm}`);
   lines.push(`set-routes = ${profile.set_routes ? 1 : 0}`);
   lines.push(`set-dns = ${profile.set_dns ? 1 : 0}`);
@@ -26,17 +47,16 @@ export function buildOpenfortivpnConfig(profile: VpnProfile, password: string): 
   if (profile.ca_file) lines.push(`ca-file = ${profile.ca_file}`);
   if (profile.user_cert) lines.push(`user-cert = ${profile.user_cert}`);
   if (profile.user_key) lines.push(`user-key = ${profile.user_key}`);
-  if (profile.trusted_cert) {
-    for (const digest of profile.trusted_cert.split(/[\s,]+/).filter(Boolean)) {
-      lines.push(`trusted-cert = ${digest}`);
-    }
+  for (const digest of parseTrustedCertDigests(profile.trusted_cert)) {
+    lines.push(`trusted-cert = ${digest}`);
   }
-  if (!profile.verify_cert || profile.trust_all_gw_certs || profile.insecure_ssl) {
+  if (!profile.verify_cert || profile.insecure_ssl) {
     lines.push(`insecure-ssl = 1`);
   }
   if (profile.seclevel1) lines.push(`seclevel-1 = 1`);
-  if (profile.min_tls && profile.min_tls !== "default") {
-    lines.push(`min-tls = ${profile.min_tls}`);
+  const minTls = (profile.min_tls || "").trim();
+  if (minTls && !/^default$/i.test(minTls)) {
+    lines.push(`min-tls = ${minTls}`);
   }
   if (profile.pppd_no_peerdns) lines.push(`pppd-no-peerdns = 1`);
   lines.push(`pppd-use-peerdns = ${profile.pppd_no_peerdns ? 0 : 1}`);
@@ -48,13 +68,25 @@ export function buildOpenfortivpnConfig(profile: VpnProfile, password: string): 
   if (profile.pppd_call) lines.push(`pppd-call = ${profile.pppd_call}`);
   if (profile.otp_prompt) lines.push(`otp-prompt = ${profile.otp_prompt}`);
   if (profile.otp_delay) lines.push(`otp-delay = ${profile.otp_delay}`);
+  if (profile.no_ftm_push) lines.push(`no-ftm-push = 1`);
   return lines.join("\n") + "\n";
 }
 
 const running = new Map<string, { proc: ChildProcess; configPath: string }>();
 
-function findOpenfortivpn(): string {
-  return process.env.OPENFORTIVPN_PATH || "openfortivpn";
+/**
+ * Absolute path to openfortivpn for `sudo` argv.
+ * Sudoers `NOPASSWD: /usr/bin/openfortivpn` only matches that path — not bare `openfortivpn`.
+ */
+export function resolveOpenfortivpnExecutable(): string | null {
+  const env = process.env.OPENFORTIVPN_PATH?.trim();
+  if (env) return path.isAbsolute(env) ? env : path.resolve(env);
+  for (const p of ["/usr/bin/openfortivpn", "/usr/local/bin/openfortivpn"]) {
+    if (fs.existsSync(p)) return p;
+  }
+  const r = spawnSync("which", ["openfortivpn"], { encoding: "utf8" });
+  if (r.status === 0 && r.stdout.trim()) return r.stdout.trim();
+  return null;
 }
 
 export function isOpenfortivpnRunning(name: string): boolean {
@@ -91,16 +123,37 @@ export function startOpenfortivpn(
   const cfgDir = path.join(os.tmpdir(), "fortivpngui");
   fs.mkdirSync(cfgDir, { recursive: true });
   const configPath = path.join(cfgDir, `run-${name}-${Date.now()}.conf`);
-  fs.writeFileSync(configPath, buildOpenfortivpnConfig(profile, password), { mode: 0o600 });
+  fs.writeFileSync(configPath, buildOpenfortivpnConfig(profile, password, otp), { mode: 0o600 });
 
-  const args: string[] = ["-c", configPath];
+  const digests = parseTrustedCertDigests(profile.trusted_cert);
+  const rawTc = profile.trusted_cert?.trim();
+  if (rawTc && digests.length === 0) {
+    onLog({
+      profileName: name,
+      line: "[fortivpngui] Trusted cert field has text but no valid 64-char hex SHA-256 digest was parsed.",
+      stream: "stderr",
+    });
+  }
+
+  const args: string[] = [];
+  for (const d of digests) {
+    args.push(`--trusted-cert=${d}`);
+  }
+  args.push("-c", configPath);
   if (profile.debug) args.push("-v");
   if (otp) {
     args.push("--otp", otp);
   }
 
+  const bin = resolveOpenfortivpnExecutable();
+  if (!bin) {
+    onLog({ profileName: name, line: "openfortivpn not found (install package or set OPENFORTIVPN_PATH)", stream: "stderr" });
+    onExit(null);
+    return;
+  }
+
   const m = readMainSettings();
-  const sudoArgs = [...(m.sudo_preserve_env ? ["-E"] : []), findOpenfortivpn(), ...args];
+  const sudoArgs = [...(m.sudo_preserve_env ? ["-E"] : []), bin, ...args];
   const proc = spawn("sudo", sudoArgs, {
     env: { ...process.env },
     stdio: ["ignore", "pipe", "pipe"],

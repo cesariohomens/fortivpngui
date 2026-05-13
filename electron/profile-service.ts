@@ -6,6 +6,7 @@ import { aes128Decrypt, aes128Encrypt } from "./crypto-aes.js";
 import { readMainSettings } from "./settings-service.js";
 import * as keychain from "./keychain-service.js";
 import type { VpnProfile, DeviceType } from "./types.js";
+import { parseTrustedCertDigests } from "./openfortivpn-runner.js";
 
 function iniBool(v: unknown): boolean {
   if (v === true) return true;
@@ -32,6 +33,26 @@ async function getAesKeys(): Promise<{ key: string; iv: string }> {
   return { key: m.aeskey, iv: m.aesiv };
 }
 
+/** Flatten [cert] section (OpenFortiGUI may nest trusted_cert\\… keys) and extract SHA-256 digests. */
+function trustedCertFromIniCert(cert: Record<string, unknown>): string {
+  const chunks: string[] = [];
+  const walk = (x: unknown, depth: number) => {
+    if (depth > 12) return;
+    if (typeof x === "string") chunks.push(x);
+    else if (typeof x === "number" || typeof x === "boolean") chunks.push(String(x));
+    else if (x && typeof x === "object" && !Array.isArray(x)) {
+      for (const v of Object.values(x as Record<string, unknown>)) walk(v, depth + 1);
+    } else if (Array.isArray(x)) {
+      for (const v of x) walk(v, depth + 1);
+    }
+  };
+  walk(cert, 0);
+  for (const [k, v] of Object.entries(cert)) {
+    if (/trusted|whitelist|pin|digest|cert_hash/i.test(k) && typeof v === "string") chunks.push(v);
+  }
+  return parseTrustedCertDigests(chunks.join(" ")).join(" ");
+}
+
 export async function readProfileFromFile(
   filePath: string,
   origin: "local" | "global",
@@ -39,7 +60,7 @@ export async function readProfileFromFile(
 ): Promise<VpnProfile | null> {
   const name = path.basename(filePath, ".conf");
   if (!NAME_VALIDATOR.test(name)) return null;
-  const o = ini.parse(fs.readFileSync(filePath, "utf8")) as Record<string, Record<string, string>>;
+  const o = ini.parse(fs.readFileSync(filePath, "utf8")) as Record<string, Record<string, unknown>>;
   const vpn = o.vpn || {};
   const cert = o.cert || {};
   const opt = o.options || {};
@@ -50,43 +71,44 @@ export async function readProfileFromFile(
     if (m.use_system_password_store) {
       password = (await keychain.keytarGet(`vpn:${name}`)) || "";
     } else if (aes && vpn.password) {
-      password = aes128Decrypt(vpn.password, aes.key, aes.iv);
+      password = aes128Decrypt(String(vpn.password), aes.key, aes.iv);
     }
   }
   return {
-    name: vpn.name || name,
+    name: String(vpn.name || name),
     origin,
     device_type: deviceFromInt(parseInt(String(vpn.device_type || "0"), 10) || 0),
-    gateway_host: vpn.gateway_host || "",
+    gateway_host: String(vpn.gateway_host || ""),
     gateway_port: parseInt(String(vpn.gateway_port || "443"), 10) || 443,
-    username: vpn.username || "",
+    username: String(vpn.username || ""),
     password,
     otp: "",
-    realm: opt.realm || "",
+    realm: String(opt.realm || ""),
     set_routes: iniBool(opt.set_routes),
     set_dns: iniBool(opt.set_dns),
     half_internet_routers: iniBool(opt.half_internet_routers),
     persistent: iniBool(vpn.persistent),
-    ca_file: cert.ca_file || "",
-    user_cert: cert.user_cert || "",
-    user_key: cert.user_key || "",
-    trusted_cert: cert.trusted_cert || "",
+    ca_file: String(cert.ca_file || ""),
+    user_cert: String(cert.user_cert || ""),
+    user_key: String(cert.user_key || ""),
+    trusted_cert: trustedCertFromIniCert(cert),
     verify_cert: iniBool(cert.verify_cert),
     debug: iniBool(opt.debug),
     autostart: iniBool(opt.autostart),
     always_ask_otp: iniBool(opt.always_ask_otp),
-    otp_prompt: opt.otp_prompt || "",
+    otp_prompt: String(opt.otp_prompt || ""),
     otp_delay: parseInt(String(opt.otp_delay || "0"), 10) || 0,
+    no_ftm_push: iniBool(opt.no_ftm_push),
     pppd_no_peerdns: iniBool(opt.pppd_no_peerdns),
     pppd_accept_remote: iniBool(opt.pppd_accept_remote),
-    pppd_log_file: opt.pppd_log_file || "",
-    pppd_plugin_file: opt.pppd_plugin_file || "",
-    pppd_ifname: opt.pppd_ifname || "",
-    pppd_ipparam: opt.pppd_ipparam || "",
-    pppd_call: opt.pppd_call || "",
+    pppd_log_file: String(opt.pppd_log_file || ""),
+    pppd_plugin_file: String(opt.pppd_plugin_file || ""),
+    pppd_ifname: String(opt.pppd_ifname || ""),
+    pppd_ipparam: String(opt.pppd_ipparam || ""),
+    pppd_call: String(opt.pppd_call || ""),
     insecure_ssl: iniBool(opt.insecure_ssl),
     seclevel1: iniBool(opt.seclevel1),
-    min_tls: opt.min_tls || "default",
+    min_tls: String(opt.min_tls || "default"),
     trust_all_gw_certs: iniBool(cert.trust_all_gw_certs),
   };
 }
@@ -106,7 +128,17 @@ export async function listProfiles(): Promise<VpnProfile[]> {
       if (p) out.push(p);
     }
   }
-  return out.sort((a, b) => a.name.localeCompare(b.name));
+  /** Same name can exist in local + global (e.g. import); `find(name)` must not pick global and ignore local trusted_cert. */
+  const byName = new Map<string, VpnProfile>();
+  for (const p of out) {
+    const prev = byName.get(p.name);
+    if (!prev) {
+      byName.set(p.name, p);
+    } else if (prev.origin === "global" && p.origin === "local") {
+      byName.set(p.name, p);
+    }
+  }
+  return Array.from(byName.values()).sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export async function saveProfileLocal(profile: VpnProfile): Promise<void> {
@@ -139,7 +171,7 @@ export async function saveProfileLocal(profile: VpnProfile): Promise<void> {
       user_cert: profile.user_cert,
       user_key: profile.user_key,
       verify_cert: profile.verify_cert,
-      trusted_cert: profile.trusted_cert,
+      trusted_cert: parseTrustedCertDigests(profile.trusted_cert).join(" "),
       trust_all_gw_certs: profile.trust_all_gw_certs,
     },
     options: {
@@ -154,6 +186,7 @@ export async function saveProfileLocal(profile: VpnProfile): Promise<void> {
       always_ask_otp: profile.always_ask_otp,
       otp_prompt: profile.otp_prompt,
       otp_delay: profile.otp_delay,
+      no_ftm_push: profile.no_ftm_push,
       half_internet_routers: profile.half_internet_routers,
       pppd_log_file: profile.pppd_log_file,
       pppd_plugin_file: profile.pppd_plugin_file,

@@ -1,5 +1,12 @@
 export type DeviceType = "fortigate" | "barracuda";
 
+/** Credenciais opcionais na ligação (não gravadas no perfil). Compatível com `startVpn(name, otp)` (string só OTP). */
+export interface VpnStartCredentials {
+  username?: string;
+  password?: string;
+  otp?: string;
+}
+
 export interface VpnProfile {
   name: string;
   origin: "local" | "global";
@@ -24,6 +31,8 @@ export interface VpnProfile {
   always_ask_otp: boolean;
   otp_prompt: string;
   otp_delay: number;
+  /** Maps to openfortivpn `no-ftm-push`: prefer token/email/SMS over FortiToken Mobile push when the gateway offers both. */
+  no_ftm_push: boolean;
   pppd_no_peerdns: boolean;
   pppd_accept_remote: boolean;
   pppd_log_file: string;
@@ -52,6 +61,8 @@ export interface MainSettings {
   changelogrev_read: number;
   use_system_password_store: boolean;
   sudo_preserve_env: boolean;
+  /** Bloqueia no UI opções de certificado inseguras (OpenFortiGUI `main/disallow_unsecure_certificates`). */
+  disallow_unsecure_certificates: boolean;
   globalvpnprofiles: string;
   localvpnprofiles: string;
   localvpngroups: string;
@@ -60,4 +71,6 @@ export interface MainSettings {
   sudopresenv: boolean;
   disable_notifications: boolean;
   connect_on_dblclick: boolean;
+  /** OpenFortiGUI `main/show_search`: show profile search field. */
+  show_search: boolean;
 }

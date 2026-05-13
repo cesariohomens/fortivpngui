@@ -58,6 +58,7 @@
     "linux": {
       "target": ["deb"],
       "category": "Network",
+      "executableArgs": ["--no-sandbox"],
       "executableName": "fortivpngui",
       "maintainer": "fortivpngui@localhost",
       "desktop": {

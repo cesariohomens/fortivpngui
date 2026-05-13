@@ -1,4 +1,4 @@
-import type { VpnProfile, VpnGroup, MainSettings } from "../../shared/types";
+import type { VpnProfile, VpnGroup, MainSettings, VpnStartCredentials } from "../../shared/types";
 
 export interface FvpnApi {
   openfortivpnPath: () => Promise<string | null>;
@@ -10,15 +10,20 @@ export interface FvpnApi {
   saveGroup: (g: VpnGroup) => Promise<void>;
   deleteGroup: (name: string) => Promise<boolean>;
   renameGroup: (oldName: string, newName: string) => Promise<void>;
+  duplicateGroup: (name: string) => Promise<string>;
   getSettings: () => Promise<MainSettings>;
   saveSettings: (partial: Partial<MainSettings>) => Promise<MainSettings>;
-  startVpn: (name: string, otp?: string) => Promise<void>;
+  mergeOpenfortiguiMain: () => Promise<MainSettings | null>;
+  startVpn: (name: string, arg?: string | VpnStartCredentials) => Promise<void>;
   stopVpn: (name: string) => Promise<void>;
   vpnStatus: (name: string) => Promise<string>;
+  trustGatewayDigest: (profileName: string, digest: string) => Promise<false | "profile" | "cache">;
   importOpenfortigui: () => Promise<{ profilesCopied: number; groupsCopied: number; errors: string[] }>;
   markChangelogRead: () => Promise<void>;
+  onAppNavigate: (cb: (ev: { tab?: number }) => void) => () => void;
   onVpnLog: (cb: (ev: { name: string; line: string; stream: string }) => void) => () => void;
   onVpnStatus: (cb: (ev: { name: string; state: string }) => void) => () => void;
+  onGatewayCertPrompt: (cb: (ev: { profileName: string; digest: string; body: string }) => void) => () => void;
 }
 
 declare global {

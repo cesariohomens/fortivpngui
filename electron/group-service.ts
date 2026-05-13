@@ -90,6 +90,24 @@ export async function deleteGroup(name: string): Promise<boolean> {
   return false;
 }
 
+export async function duplicateGroup(sourceName: string): Promise<string> {
+  const groups = await listGroups();
+  const g = groups.find((x) => x.name === sourceName);
+  if (!g) throw new Error("Group not found");
+  let newName = `${g.name} copy`;
+  let n = 2;
+  while (groups.some((x) => x.name === newName)) {
+    newName = `${g.name} copy ${n}`;
+    n += 1;
+  }
+  await saveGroup({
+    name: newName,
+    localMembers: [...g.localMembers],
+    globalMembers: [...g.globalMembers],
+  });
+  return newName;
+}
+
 export async function renameGroup(oldName: string, newName: string): Promise<void> {
   const m = readMainSettings();
   const dir = expandHome(m.localvpngroups);

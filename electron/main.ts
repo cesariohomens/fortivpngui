@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, Menu, nativeImage, Tray } from "electron";
+import { app, BrowserWindow, ipcMain, Menu, nativeImage, Tray, dialog } from "electron";
 import path from "path";
 import fs from "fs";
 import { pathToFileURL } from "node:url";
@@ -7,11 +7,13 @@ import * as profileService from "./profile-service.js";
 import * as groupService from "./group-service.js";
 import * as vpn from "./vpn-service.js";
 import * as imp from "./import-service.js";
-import { spawnSync } from "child_process";
 import { CHANGELOG_REV } from "./config.js";
+import { resolveOpenfortivpnExecutable } from "./openfortivpn-runner.js";
+import type { VpnStartCredentials } from "./types.js";
 
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
+let autostartVpnsDone = false;
 
 /** SVG copied to dist/ on build; duplicate under resources/ for packaged app. */
 function resolveAppIconPath(): string | undefined {
@@ -33,16 +35,37 @@ function createAppNativeIcon(): Electron.NativeImage | undefined {
   return img.isEmpty() ? undefined : img;
 }
 
-function resolveOpenfortivpn(): string | null {
-  const r = spawnSync("which", ["openfortivpn"], { encoding: "utf8" });
-  if (r.status === 0 && r.stdout.trim()) return r.stdout.trim();
-  return null;
+async function runAutostartVpns(): Promise<void> {
+  const profiles = await profileService.listProfiles();
+  const ofvPath = resolveOpenfortivpnExecutable();
+  const candidates = profiles
+    .filter((p) => p.autostart)
+    .sort((a, b) => a.name.localeCompare(b.name));
+  for (const p of candidates) {
+    if (p.device_type === "fortigate" && !ofvPath) {
+      console.warn("[autostart] Skipping Fortigate profile (openfortivpn not found):", p.name);
+      continue;
+    }
+    if (p.always_ask_otp) {
+      console.warn("[autostart] Skipping profile that requires interactive OTP:", p.name);
+      continue;
+    }
+    try {
+      await vpn.startVpn(p.name);
+    } catch (e) {
+      console.warn("[autostart] startVpn failed:", p.name, e);
+    }
+    await new Promise((r) => setTimeout(r, 400));
+  }
 }
 
 function createWindow() {
+  const s = readMainSettings();
+  const showWindow = !s.start_minimized || s.setupwizard || s.changelogrev_read < CHANGELOG_REV;
   mainWindow = new BrowserWindow({
     width: 1024,
     height: 720,
+    show: showWindow,
     autoHideMenuBar: true,
     icon: createAppNativeIcon(),
     webPreferences: {
@@ -75,6 +98,12 @@ function createWindow() {
     mainWindow.webContents.openDevTools({ mode: "detach" });
   }
 
+  mainWindow.webContents.once("did-finish-load", () => {
+    if (autostartVpnsDone) return;
+    autostartVpnsDone = true;
+    void runAutostartVpns();
+  });
+
   mainWindow.on("closed", () => {
     mainWindow = null;
     vpn.setMainWindow(null);
@@ -99,14 +128,27 @@ function buildTray() {
   if (!trayImg || trayImg.isEmpty()) return;
   tray = new Tray(trayImg);
   tray.setToolTip("FortiVPN GUI");
+  const showAndFocus = () => {
+    if (!mainWindow) return;
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
+  };
   const menu = Menu.buildFromTemplate([
-    { label: "Show", click: () => mainWindow?.show() },
+    { label: "Show", click: showAndFocus },
+    {
+      label: "Settings",
+      click: () => {
+        showAndFocus();
+        mainWindow?.webContents.send("app:navigate", { tab: 2 });
+      },
+    },
     { type: "separator" },
     { label: "Quit", click: () => app.quit() },
   ]);
   tray.setContextMenu(menu);
   tray.on("click", () => {
-    mainWindow?.show();
+    showAndFocus();
   });
 }
 
@@ -118,6 +160,7 @@ if (!gotLock) {
     if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore();
       mainWindow.show();
+      mainWindow.focus();
     }
   });
 
@@ -137,8 +180,22 @@ if (!gotLock) {
     initMainConfig();
     createWindow();
     buildTray();
+    vpn.setTrayRef(tray);
+    vpn.setGatewayCertUiHandler((ev) => {
+      if (ev.kind === "blocked") {
+        dialog.showErrorBox("Gateway certificate validation failed", ev.message);
+        return;
+      }
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send("vpn:gateway-cert-prompt", {
+          profileName: ev.profileName,
+          digest: ev.digest,
+          body: ev.body,
+        });
+      }
+    });
 
-    ipcMain.handle("app:openfortivpnPath", () => resolveOpenfortivpn());
+    ipcMain.handle("app:openfortivpnPath", () => resolveOpenfortivpnExecutable());
     ipcMain.handle("profiles:list", () => profileService.listProfiles());
     ipcMain.handle("profiles:save", (_e, p) => profileService.saveProfileLocal(p));
     ipcMain.handle("profiles:delete", (_e, name: string) => profileService.deleteProfileLocal(name));
@@ -149,14 +206,21 @@ if (!gotLock) {
     ipcMain.handle("groups:delete", (_e, name: string) => groupService.deleteGroup(name));
     ipcMain.handle("groups:rename", (_e, o: string, n: string) => groupService.renameGroup(o, n));
 
+    ipcMain.handle("groups:duplicate", (_e, name: string) => groupService.duplicateGroup(name));
+
     ipcMain.handle("settings:get", () => readMainSettings());
     ipcMain.handle("settings:save", (_e, partial) => patchMainSettings(partial));
 
-    ipcMain.handle("vpn:start", (_e, name: string, otp?: string) => vpn.startVpn(name, otp));
+    ipcMain.handle("vpn:start", (_e, name: string, arg?: string | VpnStartCredentials) => vpn.startVpn(name, arg));
     ipcMain.handle("vpn:stop", (_e, name: string) => vpn.stopVpn(name));
     ipcMain.handle("vpn:status", (_e, name: string) => vpn.getVpnStatus(name));
 
     ipcMain.handle("import:openfortigui", () => imp.importFromOpenfortigui());
+    ipcMain.handle("settings:mergeOpenfortiguiMain", () => imp.mergeOpenfortiguiMainIntoFortivpngui());
+
+    ipcMain.handle("vpn:trustGatewayDigest", (_e, profileName: string, digest: string) =>
+      vpn.trustGatewayCertDigest(profileName, digest)
+    );
 
     ipcMain.handle("changelog:markRead", () => {
       patchMainSettings({ changelogrev_read: CHANGELOG_REV });

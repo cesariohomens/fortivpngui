@@ -7,3 +7,6 @@ release/
 shared/*.js
 .env
 .env.*
+
+# Local OpenFortiGUI source tree (reference only; not part of this repo).
+openfortigui/

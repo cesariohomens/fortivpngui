@@ -1,4 +1,5 @@
 import fs from "fs";
+import path from "path";
 import ini from "ini";
 import { expandHome, paths, DEFAULT_AES_IV, DEFAULT_AES_KEY, toTilde } from "./config.js";
 import type { MainSettings } from "./types.js";
@@ -17,6 +18,7 @@ function defaultMain(): MainSettings {
     changelogrev_read: 0,
     use_system_password_store: false,
     sudo_preserve_env: false,
+    disallow_unsecure_certificates: false,
     globalvpnprofiles: toTilde(paths.globalProfiles()),
     localvpnprofiles: toTilde(paths.localProfiles()),
     localvpngroups: toTilde(paths.localGroups()),
@@ -25,6 +27,7 @@ function defaultMain(): MainSettings {
     sudopresenv: false,
     disable_notifications: false,
     connect_on_dblclick: false,
+    show_search: false,
   };
 }
 
@@ -67,6 +70,7 @@ export function readMainSettings(): MainSettings {
     changelogrev_read: parseInt(String(main.changelogrev_read || "0"), 10) || 0,
     use_system_password_store: iniBool(main.use_system_password_store),
     sudo_preserve_env: iniBool(main.sudo_preserve_env),
+    disallow_unsecure_certificates: iniBool(main.disallow_unsecure_certificates),
     globalvpnprofiles: p.globalvpnprofiles || defaultMain().globalvpnprofiles,
     localvpnprofiles: p.localvpnprofiles || defaultMain().localvpnprofiles,
     localvpngroups: p.localvpngroups || defaultMain().localvpngroups,
@@ -75,6 +79,7 @@ export function readMainSettings(): MainSettings {
     sudopresenv: iniBool(checks.sudopresenv),
     disable_notifications: iniBool(gui.disable_notifications),
     connect_on_dblclick: iniBool(gui.connect_on_dblclick),
+    show_search: iniBool(main.show_search),
   };
 }
 
@@ -89,6 +94,8 @@ export function writeMainSettings(s: MainSettings): void {
       changelogrev_read: s.changelogrev_read,
       use_system_password_store: s.use_system_password_store,
       sudo_preserve_env: s.sudo_preserve_env,
+      disallow_unsecure_certificates: s.disallow_unsecure_certificates,
+      show_search: s.show_search,
     },
     paths: {
       globalvpnprofiles: s.globalvpnprofiles,
@@ -120,9 +127,31 @@ export function readGwCertCache(): Record<string, string> {
   return o.gw_cert_hashes || {};
 }
 
+/** OpenFortiGUI stores accepted gateway digests here when "Trust all gateway certs" is enabled. */
+export function readOpenfortiguiGwCertCache(): Record<string, string> {
+  const p = path.join(paths.openfortiguiLegacy(), "gw_cert.cache");
+  if (!fs.existsSync(p)) return {};
+  try {
+    const o = ini.parse(fs.readFileSync(p, "utf8")) as { gw_cert_hashes?: Record<string, string> };
+    return o.gw_cert_hashes || {};
+  } catch {
+    return {};
+  }
+}
+
 export function writeGwCertCache(map: Record<string, string>): void {
   const body = ini.stringify({ gw_cert_hashes: map });
   fs.writeFileSync(paths.gwCertCache(), body, { mode: 0o600 });
+}
+
+/** One entry per profile name (same semantics as OpenFortiGUI `saveGwCertCache`). */
+export function setGwCertCacheEntry(profileName: string, digest: string): void {
+  const d = digest.trim().toLowerCase();
+  if (!/^[0-9a-f]{64}$/.test(d)) return;
+  const map = readGwCertCache();
+  if (map[profileName] === d) return;
+  map[profileName] = d;
+  writeGwCertCache(map);
 }
 
 export { expandHome };
