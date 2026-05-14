@@ -679,6 +679,20 @@ export default function App() {
     setLoginTarget(null);
   };
 
+  const cancelLogin = async () => {
+    const target = loginTarget;
+    setLoginOpen(false);
+    setLoginKind(null);
+    setLoginTarget(null);
+    setLoginOtp("");
+    if (!target) return;
+    try {
+      await window.fvpn.stopVpn(target);
+    } catch (e) {
+      console.warn("[login] stop after cancel failed", e);
+    }
+  };
+
   const submitBarrOtp = async () => {
     if (!barrOtpTarget) return;
     if (!barrOtpVal.trim()) {
@@ -693,6 +707,19 @@ export default function App() {
     setBarrOtpOpen(false);
     setBarrOtpTarget(null);
     setBarrOtpVal("");
+  };
+
+  const cancelBarrOtp = async () => {
+    const target = barrOtpTarget;
+    setBarrOtpOpen(false);
+    setBarrOtpTarget(null);
+    setBarrOtpVal("");
+    if (!target) return;
+    try {
+      await window.fvpn.stopVpn(target);
+    } catch (e) {
+      console.warn("[barracuda-otp] stop after cancel failed", e);
+    }
   };
 
   const saveSettingsUi = async (partial: Partial<MainSettings>) => {
@@ -1440,7 +1467,7 @@ export default function App() {
         </DialogActions>
       </Dialog>
 
-      <Dialog open={loginOpen} onClose={() => setLoginOpen(false)} maxWidth="xs" fullWidth>
+      <Dialog open={loginOpen} onClose={() => void cancelLogin()} maxWidth="xs" fullWidth>
         <DialogTitle>VPN Login</DialogTitle>
         <DialogContent>
           <Stack spacing={2} pt={1}>
@@ -1480,14 +1507,14 @@ export default function App() {
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setLoginOpen(false)}>Cancel</Button>
+          <Button onClick={() => void cancelLogin()}>Cancel</Button>
           <Button variant="contained" onClick={() => void submitLogin()}>
             Submit
           </Button>
         </DialogActions>
       </Dialog>
 
-      <Dialog open={barrOtpOpen} onClose={() => setBarrOtpOpen(false)} maxWidth="xs" fullWidth>
+      <Dialog open={barrOtpOpen} onClose={() => void cancelBarrOtp()} maxWidth="xs" fullWidth>
         <DialogTitle>OTP-Token required</DialogTitle>
         <DialogContent>
           <TextField
@@ -1511,7 +1538,7 @@ export default function App() {
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setBarrOtpOpen(false)}>Cancel</Button>
+          <Button onClick={() => void cancelBarrOtp()}>Cancel</Button>
           <Button variant="contained" onClick={() => void submitBarrOtp()}>
             Submit
           </Button>
