@@ -1,4 +1,4 @@
-import type { VpnProfile, VpnGroup, MainSettings, VpnStartCredentials } from "../../shared/types";
+import type { VpnProfile, VpnGroup, MainSettings, VpnStartCredentials, VpnTrafficStats } from "../../shared/types";
 
 export interface FvpnApi {
   openfortivpnPath: () => Promise<string | null>;
@@ -18,11 +18,16 @@ export interface FvpnApi {
   stopVpn: (name: string) => Promise<void>;
   vpnStatus: (name: string) => Promise<string>;
   trustGatewayDigest: (profileName: string, digest: string) => Promise<false | "profile" | "cache">;
+  chooseDirectory: (initialPath?: string) => Promise<string | null>;
+  openLogsDir: () => Promise<string>;
+  openVpnLog: (name: string) => Promise<string>;
   importOpenfortigui: () => Promise<{ profilesCopied: number; groupsCopied: number; errors: string[] }>;
   markChangelogRead: () => Promise<void>;
   onAppNavigate: (cb: (ev: { tab?: number }) => void) => () => void;
+  onAppConnectProfile: (cb: (ev: { name: string }) => void) => () => void;
   onVpnLog: (cb: (ev: { name: string; line: string; stream: string }) => void) => () => void;
   onVpnStatus: (cb: (ev: { name: string; state: string }) => void) => () => void;
+  onVpnStats: (cb: (ev: { name: string; stats: VpnTrafficStats }) => void) => () => void;
   onGatewayCertPrompt: (cb: (ev: { profileName: string; digest: string; body: string }) => void) => () => void;
 }
 

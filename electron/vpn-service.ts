@@ -5,7 +5,8 @@ import * as barr from "./barracuda-runner.js";
 import * as settingsService from "./settings-service.js";
 import { appendVpnLogLine } from "./vpn-file-logger.js";
 import * as certTracker from "./cert-failure-tracker.js";
-import type { VpnStartCredentials } from "./types.js";
+import fs from "fs";
+import type { VpnProfile, VpnStartCredentials, VpnTrafficStats } from "./types.js";
 function normalizeVpnStartArg(input?: string | VpnStartCredentials): { username?: string; password?: string; otp?: string } {
   if (input == null) return {};
   if (typeof input === "string") return { otp: input };
@@ -19,8 +20,11 @@ function normalizeVpnStartArg(input?: string | VpnStartCredentials): { username?
 export type ConnState = "disconnected" | "connecting" | "connected";
 
 const status = new Map<string, ConnState>();
+const stats = new Map<string, VpnTrafficStats>();
+const trafficTimers = new Map<string, NodeJS.Timeout>();
 let logWindow: BrowserWindow | null = null;
 let trayRef: Tray | null = null;
+let statusChangeHook: (() => void) | null = null;
 
 export type GatewayCertUiEvent =
   | { kind: "prompt"; profileName: string; digest: string; body: string }
@@ -96,6 +100,10 @@ export function setTrayRef(t: Tray | null) {
   trayRef = t;
 }
 
+export function setStatusChangeHook(cb: (() => void) | null) {
+  statusChangeHook = cb;
+}
+
 export function setGatewayCertUiHandler(cb: ((ev: GatewayCertUiEvent) => void) | null) {
   gatewayCertUiHandler = cb;
 }
@@ -132,14 +140,65 @@ function onConnStateChange(profileName: string, prev: ConnState | undefined, nex
   if (next === "disconnected" && (prev === "connected" || prev === "connecting")) {
     maybeNotifyVpn("VPN disconnected", profileName);
   }
+  statusChangeHook?.();
 }
 
 export function getVpnStatus(name: string): ConnState {
   return status.get(name) || "disconnected";
 }
 
+function emitStats(profileName: string, next: VpnTrafficStats): void {
+  stats.set(profileName, next);
+  emit("vpn:stats", { name: profileName, stats: next });
+}
+
+function readInterfaceStats(iface: string): VpnTrafficStats | null {
+  try {
+    const raw = fs.readFileSync("/proc/net/dev", "utf8");
+    for (const line of raw.split(/\r?\n/)) {
+      const m = line.trim().match(/^([^:]+):\s*(.*)$/);
+      if (!m || m[1] !== iface) continue;
+      const cols = m[2].trim().split(/\s+/).map((x) => Number.parseInt(x, 10));
+      if (cols.length >= 16 && Number.isFinite(cols[0]) && Number.isFinite(cols[8])) {
+        return { bytes_read: cols[0], bytes_written: cols[8] };
+      }
+    }
+  } catch {
+    /* /proc/net/dev is Linux-specific. */
+  }
+  return null;
+}
+
+function clearTrafficPoll(profileName: string): void {
+  const timer = trafficTimers.get(profileName);
+  if (timer) clearInterval(timer);
+  trafficTimers.delete(profileName);
+}
+
+function startTrafficPoll(profileName: string, iface: string): void {
+  clearTrafficPoll(profileName);
+  const tick = () => {
+    const next = readInterfaceStats(iface);
+    if (next) emitStats(profileName, next);
+  };
+  tick();
+  trafficTimers.set(profileName, setInterval(tick, 2000));
+}
+
+function isAnyBarracudaActive(profiles: VpnProfile[], exceptName?: string): boolean {
+  for (const [name, state] of status.entries()) {
+    if (name === exceptName) continue;
+    if (profiles.find((p) => p.name === name)?.device_type !== "barracuda") continue;
+    if (state !== "connected" && state !== "connecting") continue;
+    return true;
+  }
+  return false;
+}
+
 function processFortigateLogLine(profileName: string, line: string, stream: "stdout" | "stderr"): void {
   appendVpnLogLine(profileName, stream, line);
+  const iface = line.match(/\bInterface\s+([^\s.]+)\s+is\s+UP\b/i)?.[1];
+  if (iface) startTrafficPoll(profileName, iface);
   const flush = certTracker.feedCertFailureLine(profileName, line);
   if (flush) {
     const main = settingsService.readMainSettings();
@@ -222,6 +281,12 @@ export async function startVpn(profileName: string, arg?: string | VpnStartCrede
       : p.username;
 
   if (p.device_type === "barracuda") {
+    if (isAnyBarracudaActive(profiles, profileName)) {
+      throw new Error("Only one running barracuda VPN allowed!");
+    }
+    if (!effectiveUsername || !effectivePassword) {
+      throw new Error("Please provide username and password in your VPN profile!");
+    }
     const prev = status.get(profileName);
     status.set(profileName, "connecting");
     onConnStateChange(profileName, prev, "connecting");
@@ -238,9 +303,11 @@ export async function startVpn(profileName: string, arg?: string | VpnStartCrede
         const st: ConnState = s === "connected" ? "connected" : s === "connecting" ? "connecting" : "disconnected";
         const prevS = status.get(profileName);
         status.set(profileName, st);
+        if (st === "disconnected") clearTrafficPoll(profileName);
         onConnStateChange(profileName, prevS, st);
         emit("vpn:status", { name: profileName, state: st });
-      }
+      },
+      (nextStats) => emitStats(profileName, nextStats)
     );
     return;
   }
@@ -274,6 +341,7 @@ export async function startVpn(profileName: string, arg?: string | VpnStartCrede
     () => {
       const prevS = status.get(profileName);
       status.set(profileName, "disconnected");
+      clearTrafficPoll(profileName);
       onConnStateChange(profileName, prevS, "disconnected");
       emit("vpn:status", { name: profileName, state: "disconnected" });
     },
@@ -293,6 +361,7 @@ export async function stopVpn(profileName: string): Promise<void> {
   else ofv.stopOpenfortivpn(profileName);
   const prev = status.get(profileName);
   status.set(profileName, "disconnected");
+  clearTrafficPoll(profileName);
   onConnStateChange(profileName, prev, "disconnected");
   emit("vpn:status", { name: profileName, state: "disconnected" });
 }

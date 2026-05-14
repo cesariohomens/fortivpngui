@@ -2,7 +2,7 @@ import { spawn, ChildProcess } from "child_process";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import type { VpnProfile } from "./types.js";
+import type { VpnProfile, VpnTrafficStats } from "./types.js";
 
 const TEMPLATE = `BINDIP = 
 CERTFILE = 
@@ -32,6 +32,23 @@ WRITEDNS = NO
 
 const barracudaProcesses = new Map<string, { proc: ChildProcess; timer?: NodeJS.Timeout }>();
 
+function readTunStats(): VpnTrafficStats | null {
+  try {
+    const raw = fs.readFileSync("/proc/net/dev", "utf8");
+    for (const line of raw.split(/\r?\n/)) {
+      const m = line.trim().match(/^([^:]+):\s*(.*)$/);
+      if (!m || !m[1].includes("tun")) continue;
+      const cols = m[2].trim().split(/\s+/).map((x) => Number.parseInt(x, 10));
+      if (cols.length >= 16 && Number.isFinite(cols[0]) && Number.isFinite(cols[8])) {
+        return { bytes_read: cols[0], bytes_written: cols[8] };
+      }
+    }
+  } catch {
+    /* /proc/net/dev is Linux-specific. */
+  }
+  return null;
+}
+
 export function stopBarracuda(name: string): void {
   const b = barracudaProcesses.get(name);
   if (b?.timer) clearInterval(b.timer);
@@ -44,8 +61,11 @@ export function startBarracuda(
   password: string,
   otpToken: string,
   onLog: (line: string) => void,
-  onStatus: (s: "connecting" | "connected" | "disconnected") => void
+  onStatus: (s: "connecting" | "connected" | "disconnected") => void,
+  onStats?: (stats: VpnTrafficStats) => void
 ): void {
+  if (barracudaProcesses.has(profile.name)) return;
+
   const base = path.join(os.tmpdir(), `fortivpngui-barracuda-${profile.name.replace(/[^a-zA-Z0-9_-]/g, "_")}`);
   fs.mkdirSync(path.join(base, "ca"), { recursive: true });
   const confFile = path.join(base, "barracudavpn.conf");
@@ -61,28 +81,51 @@ export function startBarracuda(
 
   onStatus("connecting");
   const proc = spawn("barracudavpn", args, { stdio: ["ignore", "pipe", "pipe"] });
+  let initialOutput = "";
   const log = (d: Buffer) => {
     const t = d.toString("utf8");
+    initialOutput += t;
     for (const line of t.split(/\r?\n/)) if (line) onLog(line);
   };
   proc.stdout?.on("data", log);
   proc.stderr?.on("data", log);
 
+  const startStatusPolling = () => {
+    const current = barracudaProcesses.get(profile.name);
+    if (!current || current.timer) return;
+    const timer = setInterval(() => {
+      const st = spawn("barracudavpn", ["--status"], { stdio: ["ignore", "pipe", "pipe"] });
+      let out = "";
+      st.stdout?.on("data", (d) => (out += d.toString()));
+      st.stderr?.on("data", (d) => (out += d.toString()));
+      st.on("close", () => {
+        for (const line of out.split(/\r?\n/)) if (line) onLog(line);
+        if (out.includes("Status:      CONNECTED")) {
+          onStatus("connected");
+          const stats = readTunStats();
+          if (stats) onStats?.(stats);
+        } else {
+          onStatus("disconnected");
+          stopBarracuda(profile.name);
+        }
+      });
+    }, 2000);
+    barracudaProcesses.set(profile.name, { ...current, timer });
+  };
+
   proc.on("exit", () => {
-    const b = barracudaProcesses.get(profile.name);
-    if (b?.timer) clearInterval(b.timer);
+    if (/failed/i.test(initialOutput)) {
+      onStatus("disconnected");
+      barracudaProcesses.delete(profile.name);
+      return;
+    }
+    startStatusPolling();
+  });
+  proc.on("error", (err) => {
+    onLog(`spawn error: ${err.message}`);
+    onStatus("disconnected");
     barracudaProcesses.delete(profile.name);
   });
 
-  const timer = setInterval(() => {
-    const st = spawn("barracudavpn", ["--status"], { stdio: ["ignore", "pipe", "pipe"] });
-    let out = "";
-    st.stdout?.on("data", (d) => (out += d.toString()));
-    st.on("close", () => {
-      if (out.includes("Status:      CONNECTED")) onStatus("connected");
-      else if (out.includes("failed")) onStatus("disconnected");
-    });
-  }, 2000);
-
-  barracudaProcesses.set(profile.name, { proc, timer });
+  barracudaProcesses.set(profile.name, { proc });
 }

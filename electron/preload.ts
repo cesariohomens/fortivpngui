@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
-import type { VpnProfile, VpnGroup, MainSettings, VpnStartCredentials } from "./types.js";
+import type { VpnProfile, VpnGroup, MainSettings, VpnStartCredentials, VpnTrafficStats } from "./types.js";
 
 contextBridge.exposeInMainWorld("fvpn", {
   openfortivpnPath: () => ipcRenderer.invoke("app:openfortivpnPath") as Promise<string | null>,
@@ -20,12 +20,20 @@ contextBridge.exposeInMainWorld("fvpn", {
   vpnStatus: (name: string) => ipcRenderer.invoke("vpn:status", name) as Promise<string>,
   trustGatewayDigest: (profileName: string, digest: string) =>
     ipcRenderer.invoke("vpn:trustGatewayDigest", profileName, digest) as Promise<false | "profile" | "cache">,
+  chooseDirectory: (initialPath?: string) => ipcRenderer.invoke("app:chooseDirectory", initialPath) as Promise<string | null>,
+  openLogsDir: () => ipcRenderer.invoke("app:openLogsDir") as Promise<string>,
+  openVpnLog: (name: string) => ipcRenderer.invoke("app:openVpnLog", name) as Promise<string>,
   importOpenfortigui: () => ipcRenderer.invoke("import:openfortigui") as Promise<{ profilesCopied: number; groupsCopied: number; errors: string[] }>,
   markChangelogRead: () => ipcRenderer.invoke("changelog:markRead") as Promise<void>,
   onAppNavigate: (cb: (ev: { tab?: number }) => void) => {
     const fn = (_e: IpcRendererEvent, ev: { tab?: number }) => cb(ev);
     ipcRenderer.on("app:navigate", fn);
     return () => ipcRenderer.removeListener("app:navigate", fn);
+  },
+  onAppConnectProfile: (cb: (ev: { name: string }) => void) => {
+    const fn = (_e: IpcRendererEvent, ev: { name: string }) => cb(ev);
+    ipcRenderer.on("app:connect-profile", fn);
+    return () => ipcRenderer.removeListener("app:connect-profile", fn);
   },
   onVpnLog: (cb: (ev: { name: string; line: string; stream: string }) => void) => {
     const fn = (_e: IpcRendererEvent, ev: { name?: string; profileName?: string; line: string; stream: string }) => {
@@ -38,6 +46,11 @@ contextBridge.exposeInMainWorld("fvpn", {
     const fn = (_e: IpcRendererEvent, ev: { name: string; state: string }) => cb(ev);
     ipcRenderer.on("vpn:status", fn);
     return () => ipcRenderer.removeListener("vpn:status", fn);
+  },
+  onVpnStats: (cb: (ev: { name: string; stats: VpnTrafficStats }) => void) => {
+    const fn = (_e: IpcRendererEvent, ev: { name: string; stats: VpnTrafficStats }) => cb(ev);
+    ipcRenderer.on("vpn:stats", fn);
+    return () => ipcRenderer.removeListener("vpn:stats", fn);
   },
   onGatewayCertPrompt: (cb: (ev: { profileName: string; digest: string; body: string }) => void) => {
     const fn = (_e: IpcRendererEvent, ev: { profileName: string; digest: string; body: string }) => cb(ev);

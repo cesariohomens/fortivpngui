@@ -7,6 +7,12 @@ export interface VpnStartCredentials {
   otp?: string;
 }
 
+export interface VpnTrafficStats {
+  bytes_read: number;
+  bytes_written: number;
+  vpn_start?: number;
+}
+
 export interface VpnProfile {
   name: string;
   origin: "local" | "global";

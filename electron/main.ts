@@ -1,8 +1,8 @@
-import { app, BrowserWindow, ipcMain, Menu, nativeImage, Tray, dialog } from "electron";
+import { app, BrowserWindow, ipcMain, Menu, nativeImage, Tray, dialog, shell } from "electron";
 import path from "path";
 import fs from "fs";
 import { pathToFileURL } from "node:url";
-import { initMainConfig, readMainSettings, patchMainSettings } from "./settings-service.js";
+import { initMainConfig, readMainSettings, patchMainSettings, expandHome } from "./settings-service.js";
 import * as profileService from "./profile-service.js";
 import * as groupService from "./group-service.js";
 import * as vpn from "./vpn-service.js";
@@ -14,6 +14,7 @@ import type { VpnStartCredentials } from "./types.js";
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let autostartVpnsDone = false;
+let isQuitting = false;
 
 /** SVG copied to dist/ on build; duplicate under resources/ for packaged app. */
 function resolveAppIconPath(): string | undefined {
@@ -61,7 +62,7 @@ async function runAutostartVpns(): Promise<void> {
 
 function createWindow() {
   const s = readMainSettings();
-  const showWindow = !s.start_minimized || s.setupwizard || s.changelogrev_read < CHANGELOG_REV;
+  const showWindow = !s.start_minimized || !s.setupwizard || s.changelogrev_read < CHANGELOG_REV;
   mainWindow = new BrowserWindow({
     width: 1024,
     height: 720,
@@ -108,6 +109,91 @@ function createWindow() {
     mainWindow = null;
     vpn.setMainWindow(null);
   });
+  mainWindow.on("close", (event) => {
+    if (isQuitting) return;
+    event.preventDefault();
+    mainWindow?.hide();
+  });
+}
+
+async function refreshTrayMenu() {
+  if (!tray) return;
+  const showAndFocus = () => {
+    if (!mainWindow) return;
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
+  };
+  const profiles = await profileService.listProfiles().catch(() => []);
+  const groups = await groupService.listGroups().catch(() => []);
+  const profileItems = profiles.map((p) => {
+    const state = vpn.getVpnStatus(p.name);
+    const active = state === "connected" || state === "connecting";
+    return {
+      label: `${active ? "Disconnect" : "Connect"} ${p.name} (${p.device_type})`,
+      click: async () => {
+        try {
+          if (active) await vpn.stopVpn(p.name);
+          else if (p.always_ask_otp && mainWindow && !mainWindow.isDestroyed()) {
+            showAndFocus();
+            mainWindow.webContents.send("app:connect-profile", { name: p.name });
+          } else {
+            await vpn.startVpn(p.name);
+          }
+        } catch (e) {
+          dialog.showErrorBox("VPN", e instanceof Error ? e.message : String(e));
+        } finally {
+          void refreshTrayMenu();
+        }
+      },
+    };
+  });
+  const groupItems = groups.map((g) => ({
+    label: g.name,
+    submenu: [
+      {
+        label: "Connect all",
+        click: async () => {
+          for (const name of [...new Set([...g.localMembers, ...g.globalMembers])]) {
+            await vpn.startVpn(name).catch((e) => console.warn("[tray] group connect failed", name, e));
+          }
+          void refreshTrayMenu();
+        },
+      },
+      {
+        label: "Disconnect all",
+        click: async () => {
+          for (const name of [...new Set([...g.localMembers, ...g.globalMembers])]) {
+            await vpn.stopVpn(name).catch((e) => console.warn("[tray] group disconnect failed", name, e));
+          }
+          void refreshTrayMenu();
+        },
+      },
+    ],
+  }));
+  tray.setContextMenu(
+    Menu.buildFromTemplate([
+      ...profileItems,
+      ...(profileItems.length ? [{ type: "separator" as const }] : []),
+      { label: "VPN-Groups", submenu: groupItems.length ? groupItems : [{ label: "No groups", enabled: false }] },
+      { type: "separator" },
+      { label: "Show mainwindow", click: showAndFocus },
+      {
+        label: "Settings",
+        click: () => {
+          showAndFocus();
+          mainWindow?.webContents.send("app:navigate", { tab: 2 });
+        },
+      },
+      {
+        label: "Quit FortiVPN GUI",
+        click: () => {
+          isQuitting = true;
+          app.quit();
+        },
+      },
+    ])
+  );
 }
 
 function buildTray() {
@@ -134,21 +220,11 @@ function buildTray() {
     mainWindow.show();
     mainWindow.focus();
   };
-  const menu = Menu.buildFromTemplate([
-    { label: "Show", click: showAndFocus },
-    {
-      label: "Settings",
-      click: () => {
-        showAndFocus();
-        mainWindow?.webContents.send("app:navigate", { tab: 2 });
-      },
-    },
-    { type: "separator" },
-    { label: "Quit", click: () => app.quit() },
-  ]);
-  tray.setContextMenu(menu);
+  void refreshTrayMenu();
   tray.on("click", () => {
-    showAndFocus();
+    if (!mainWindow) return;
+    if (mainWindow.isVisible()) mainWindow.hide();
+    else showAndFocus();
   });
 }
 
@@ -181,12 +257,18 @@ if (!gotLock) {
     createWindow();
     buildTray();
     vpn.setTrayRef(tray);
+    vpn.setStatusChangeHook(() => {
+      void refreshTrayMenu();
+    });
     vpn.setGatewayCertUiHandler((ev) => {
       if (ev.kind === "blocked") {
         dialog.showErrorBox("Gateway certificate validation failed", ev.message);
         return;
       }
       if (mainWindow && !mainWindow.isDestroyed()) {
+        if (mainWindow.isMinimized()) mainWindow.restore();
+        mainWindow.show();
+        mainWindow.focus();
         mainWindow.webContents.send("vpn:gateway-cert-prompt", {
           profileName: ev.profileName,
           digest: ev.digest,
@@ -196,26 +278,84 @@ if (!gotLock) {
     });
 
     ipcMain.handle("app:openfortivpnPath", () => resolveOpenfortivpnExecutable());
+    ipcMain.handle("app:chooseDirectory", async (_e, initialPath?: string) => {
+      const options: Electron.OpenDialogOptions = {
+        defaultPath: initialPath ? expandHome(initialPath) : undefined,
+        properties: ["openDirectory", "createDirectory"],
+      };
+      const result = mainWindow
+        ? await dialog.showOpenDialog(mainWindow, options)
+        : await dialog.showOpenDialog(options);
+      if (result.canceled) return null;
+      return result.filePaths[0] ?? null;
+    });
+    ipcMain.handle("app:openLogsDir", () => {
+      const s = readMainSettings();
+      return shell.openPath(expandHome(s.logs));
+    });
+    ipcMain.handle("app:openVpnLog", (_e, name: string) => {
+      const s = readMainSettings();
+      const safe = name.replace(/[^\w.\-]+/g, "_").slice(0, 120) || "unknown";
+      return shell.openPath(path.join(expandHome(s.logs), "vpn", `${safe}.log`));
+    });
     ipcMain.handle("profiles:list", () => profileService.listProfiles());
-    ipcMain.handle("profiles:save", (_e, p) => profileService.saveProfileLocal(p));
-    ipcMain.handle("profiles:delete", (_e, name: string) => profileService.deleteProfileLocal(name));
-    ipcMain.handle("profiles:rename", (_e, oldName: string, newName: string) => profileService.renameProfileLocal(oldName, newName));
+    ipcMain.handle("profiles:save", async (_e, p) => {
+      await profileService.saveProfileLocal(p);
+      void refreshTrayMenu();
+    });
+    ipcMain.handle("profiles:delete", async (_e, name: string) => {
+      const deleted = await profileService.deleteProfileLocal(name);
+      void refreshTrayMenu();
+      return deleted;
+    });
+    ipcMain.handle("profiles:rename", async (_e, oldName: string, newName: string) => {
+      await profileService.renameProfileLocal(oldName, newName);
+      void refreshTrayMenu();
+    });
 
     ipcMain.handle("groups:list", () => groupService.listGroups());
-    ipcMain.handle("groups:save", (_e, g) => groupService.saveGroup(g));
-    ipcMain.handle("groups:delete", (_e, name: string) => groupService.deleteGroup(name));
-    ipcMain.handle("groups:rename", (_e, o: string, n: string) => groupService.renameGroup(o, n));
+    ipcMain.handle("groups:save", async (_e, g) => {
+      await groupService.saveGroup(g);
+      void refreshTrayMenu();
+    });
+    ipcMain.handle("groups:delete", async (_e, name: string) => {
+      const deleted = await groupService.deleteGroup(name);
+      void refreshTrayMenu();
+      return deleted;
+    });
+    ipcMain.handle("groups:rename", async (_e, o: string, n: string) => {
+      await groupService.renameGroup(o, n);
+      void refreshTrayMenu();
+    });
 
-    ipcMain.handle("groups:duplicate", (_e, name: string) => groupService.duplicateGroup(name));
+    ipcMain.handle("groups:duplicate", async (_e, name: string) => {
+      const newName = await groupService.duplicateGroup(name);
+      void refreshTrayMenu();
+      return newName;
+    });
 
     ipcMain.handle("settings:get", () => readMainSettings());
-    ipcMain.handle("settings:save", (_e, partial) => patchMainSettings(partial));
+    ipcMain.handle("settings:save", (_e, partial) => {
+      const next = patchMainSettings(partial);
+      void refreshTrayMenu();
+      return next;
+    });
 
-    ipcMain.handle("vpn:start", (_e, name: string, arg?: string | VpnStartCredentials) => vpn.startVpn(name, arg));
-    ipcMain.handle("vpn:stop", (_e, name: string) => vpn.stopVpn(name));
+    ipcMain.handle("vpn:start", async (_e, name: string, arg?: string | VpnStartCredentials) => {
+      await vpn.startVpn(name, arg);
+      void refreshTrayMenu();
+    });
+    ipcMain.handle("vpn:stop", async (_e, name: string) => {
+      await vpn.stopVpn(name);
+      void refreshTrayMenu();
+    });
     ipcMain.handle("vpn:status", (_e, name: string) => vpn.getVpnStatus(name));
 
-    ipcMain.handle("import:openfortigui", () => imp.importFromOpenfortigui());
+    ipcMain.handle("import:openfortigui", async () => {
+      const result = await imp.importFromOpenfortigui();
+      void refreshTrayMenu();
+      return result;
+    });
     ipcMain.handle("settings:mergeOpenfortiguiMain", () => imp.mergeOpenfortiguiMainIntoFortivpngui());
 
     ipcMain.handle("vpn:trustGatewayDigest", (_e, profileName: string, digest: string) =>
@@ -232,6 +372,9 @@ if (!gotLock) {
   });
 
   app.on("window-all-closed", () => {
-    if (process.platform !== "darwin") app.quit();
+    if (process.platform !== "darwin" && isQuitting) app.quit();
+  });
+  app.on("before-quit", () => {
+    isQuitting = true;
   });
 }
