@@ -91,10 +91,21 @@ export function stopBarracuda(name: string): void {
   if (tempDir) removeBarracudaTempDir(tempDir);
 }
 
+/** Send one line to barracudavpn stdin (interactive OTP / TUI), like typing in a terminal. */
+export function writeBarracudaStdinLine(profileName: string, text: string): boolean {
+  const b = barracudaProcesses.get(profileName);
+  if (!b || b.proc.killed) return false;
+  const stdin = b.proc.stdin;
+  if (!stdin) return false;
+  const w = stdin as NodeJS.WritableStream & { writable?: boolean; destroyed?: boolean };
+  if (w.destroyed || w.writable === false) return false;
+  return w.write(`${text}\n`, "utf8") !== false;
+}
+
 export function startBarracuda(
   profile: VpnProfile,
   password: string,
-  otpToken: string,
+  _otpToken: string,
   onLog: (line: string) => void,
   onStatus: (s: "connecting" | "connected" | "disconnected") => void,
   onStats?: (stats: VpnTrafficStats) => void
@@ -108,14 +119,15 @@ export function startBarracuda(
   fs.writeFileSync(confFile, TEMPLATE.replace("%1", profile.gateway_host).replace("%2", mode));
 
   const args = ["--start", "--login", profile.username, "--serverpwd", password];
-  if (profile.always_ask_otp) {
-    args.push("--onetimepwd", otpToken);
-  }
+  /** OpenFortiGUI passes `--onetimepwd`; many Linux client builds ignore it — use OTPMODE=STATIC + stdin like a real TTY. */
   args.push("--config", `${base}/`);
   if (profile.debug) args.push("--verbose");
 
   onStatus("connecting");
-  const proc = spawn("barracudavpn", args, { stdio: ["ignore", "pipe", "pipe"] });
+  const proc = spawn("barracudavpn", args, {
+    /** Pipe stdin so the client can read OTP from the TUI the same way as an interactive terminal. */
+    stdio: ["pipe", "pipe", "pipe"],
+  });
   let initialOutput = "";
   const log = (d: Buffer) => {
     const t = d.toString("utf8");

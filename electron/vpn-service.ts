@@ -17,13 +17,64 @@ function normalizeVpnStartArg(input?: string | VpnStartCredentials): { username?
   };
 }
 
-/** Feed OTP to a running openfortivpn (FortiGate 2FA prompt on stdin), like typing in a terminal. */
+/** Barracuda interactive OTP: `barracudavpn` reads the token from stdin (TUI). OpenFortiGUI uses `--onetimepwd`, which is ignored on several Linux client builds. */
+const barracudaStdinOtpPromptSent = new Set<string>();
+/** One IPC per Fortigate connect attempt until token submitted / tunnel up / stop (avoids duplicate modals). */
+const fortigateStdinOtpPromptSent = new Set<string>();
+
+/**
+ * OpenFortiGUI `vpnlogger.cpp`: when `otp_prompt` is empty, OTP UI if chunk contains any of these; when set, substring/regex match.
+ * Logger is shared for Fortigate and Barracuda. Extra patterns cover common TUI / gateway wording.
+ */
+function otpLogLineRequestsToken(line: string, customPrompt?: string): boolean {
+  const raw = customPrompt?.trim();
+  if (raw) {
+    try {
+      if (new RegExp(raw, "i").test(line)) return true;
+    } catch {
+      /* invalid regex from profile → substring */
+    }
+    return line.toLowerCase().includes(raw.toLowerCase());
+  }
+  if (/Please/i.test(line)) return true;
+  if (/2factor authentication token:/i.test(line)) return true;
+  if (/Two-factor authentication/i.test(line)) return true;
+  if (/one-time password/i.test(line)) return true;
+  if (/Please enter one-time password/i.test(line)) return true;
+  if (/Two-factor authentication token\s*:/i.test(line)) return true;
+  if (/\bOTP\b/i.test(line) && /\b(?:enter|type|input|provide)\b/i.test(line)) return true;
+  if (/enter (?:the |your )?(?:one[-\s]?time )?(?:password|token|code|pin|passcode)\b/i.test(line)) return true;
+  if (/second\s+factor|2[-\s]?FA|two[-\s]factor/i.test(line)) return true;
+  if (/SMS[-\s]?code|Authenticator/i.test(line)) return true;
+  if (/\b(?:challenge|verification)\s+code\b/i.test(line)) return true;
+  if (/\btoken\s*[:#>?)]/i.test(line)) return true;
+  if (/authentication key\s*:/i.test(line)) return true;
+  if (/verification code/i.test(line)) return true;
+  if (/soft[-\s]?token|hardware[-\s]?token/i.test(line)) return true;
+  return false;
+}
+
+function maybeEmitBarracudaStdinOtpPrompt(profileName: string, line: string, profile: VpnProfile): void {
+  if (profile.device_type !== "barracuda" || !profile.always_ask_otp) return;
+  if (!otpLogLineRequestsToken(line, profile.otp_prompt)) return;
+  if (barracudaStdinOtpPromptSent.has(profileName)) return;
+  barracudaStdinOtpPromptSent.add(profileName);
+  emit("vpn:fortigate-stdin-otp-prompt", { name: profileName });
+}
+
+/** Feed OTP to a running openfortivpn (FortiGate 2FA on stdin) or barracudavpn (TUI), like typing in a terminal. */
 export function submitFortigateStdinOtp(profileName: string, otp: string): boolean {
   const t = otp.trim();
   if (!t) return false;
-  const ok = ofv.writeOpenfortivpnStdinLine(profileName, t);
-  if (ok) fortigateStdinOtpPromptSent.delete(profileName);
-  return ok;
+  if (ofv.writeOpenfortivpnStdinLine(profileName, t)) {
+    fortigateStdinOtpPromptSent.delete(profileName);
+    return true;
+  }
+  if (barr.writeBarracudaStdinLine(profileName, t)) {
+    barracudaStdinOtpPromptSent.delete(profileName);
+    return true;
+  }
+  return false;
 }
 
 export type ConnState = "disconnected" | "connecting" | "connected";
@@ -204,21 +255,16 @@ function isAnyBarracudaActive(profiles: VpnProfile[], exceptName?: string): bool
   return false;
 }
 
-/** One IPC per connect attempt until token submitted / tunnel up / stop (avoids duplicate modals). */
-const fortigateStdinOtpPromptSent = new Set<string>();
-
-function maybeEmitFortigateStdinOtpPrompt(profileName: string, line: string): void {
-  const matches =
-    /Two-factor authentication token\s*:/i.test(line) || /Please enter one-time password\s*:/i.test(line);
-  if (!matches) return;
+function maybeEmitFortigateStdinOtpPrompt(profileName: string, line: string, otpPrompt?: string): void {
+  if (!otpLogLineRequestsToken(line, otpPrompt)) return;
   if (fortigateStdinOtpPromptSent.has(profileName)) return;
   fortigateStdinOtpPromptSent.add(profileName);
   emit("vpn:fortigate-stdin-otp-prompt", { name: profileName });
 }
 
-function processFortigateLogLine(profileName: string, line: string, stream: "stdout" | "stderr"): void {
+function processFortigateLogLine(profileName: string, line: string, stream: "stdout" | "stderr", otpPrompt?: string): void {
   appendVpnLogLine(profileName, stream, line);
-  maybeEmitFortigateStdinOtpPrompt(profileName, line);
+  maybeEmitFortigateStdinOtpPrompt(profileName, line, otpPrompt);
   const iface = line.match(/\bInterface\s+([^\s.]+)\s+is\s+UP\b/i)?.[1];
   if (iface) startTrafficPoll(profileName, iface);
   const flush = certTracker.feedCertFailureLine(profileName, line);
@@ -313,18 +359,21 @@ export async function startVpn(profileName: string, arg?: string | VpnStartCrede
     status.set(profileName, "connecting");
     onConnStateChange(profileName, prev, "connecting");
     emit("vpn:status", { name: profileName, state: "connecting" });
+    barracudaStdinOtpPromptSent.delete(profileName);
     barr.startBarracuda(
       { ...p, username: effectiveUsername },
       effectivePassword,
-      (opts.otp ?? "").trim(),
+      "",
       (line) => {
         appendVpnLogLine(profileName, "stdout", line);
         emit("vpn:log", { name: profileName, line, stream: "stdout" });
+        maybeEmitBarracudaStdinOtpPrompt(profileName, line, p);
       },
       (s) => {
         const st: ConnState = s === "connected" ? "connected" : s === "connecting" ? "connecting" : "disconnected";
         const prevS = status.get(profileName);
         status.set(profileName, st);
+        if (st === "connected") barracudaStdinOtpPromptSent.delete(profileName);
         if (st === "disconnected") clearTrafficPoll(profileName);
         onConnStateChange(profileName, prevS, st);
         emit("vpn:status", { name: profileName, state: st });
@@ -358,7 +407,7 @@ export async function startVpn(profileName: string, arg?: string | VpnStartCrede
     loginPassword,
     otpArg,
     (ev) => {
-      processFortigateLogLine(profileName, ev.line, ev.stream);
+      processFortigateLogLine(profileName, ev.line, ev.stream, p.otp_prompt);
       emit("vpn:log", { name: profileName, line: ev.line, stream: ev.stream });
     },
     () => {
@@ -380,10 +429,13 @@ export async function startVpn(profileName: string, arg?: string | VpnStartCrede
 
 export async function stopVpn(profileName: string): Promise<void> {
   fortigateStdinOtpPromptSent.delete(profileName);
+  barracudaStdinOtpPromptSent.delete(profileName);
   const profiles = await profileService.listProfiles();
   const p = profiles.find((x) => x.name === profileName);
-  if (p?.device_type === "barracuda") barr.stopBarracuda(profileName);
-  else ofv.stopOpenfortivpn(profileName);
+  if (p?.device_type === "barracuda") {
+    barr.stopBarracuda(profileName);
+    barracudaStdinOtpPromptSent.delete(profileName);
+  } else ofv.stopOpenfortivpn(profileName);
   const prev = status.get(profileName);
   status.set(profileName, "disconnected");
   clearTrafficPoll(profileName);

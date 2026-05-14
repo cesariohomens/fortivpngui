@@ -14,6 +14,8 @@ import type { VpnStartCredentials } from "./types.js";
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 const logWindows = new Map<string, BrowserWindow>();
+/** Per VPN log window: used by IPC to clear the correct on-disk file. */
+const logWindowMeta = new WeakMap<BrowserWindow, { profileName: string; filePath: string }>();
 let autostartVpnsDone = false;
 let isQuitting = false;
 
@@ -46,6 +48,18 @@ function vpnLogFilePath(profileName: string): string {
   return path.join(expandHome(s.logs), "vpn", `${safeProfileSegment(profileName)}.log`);
 }
 
+function vpnLogsBaseDir(): string {
+  const s = readMainSettings();
+  return path.resolve(path.join(expandHome(s.logs), "vpn"));
+}
+
+function isPathUnderVpnLogsDir(absPath: string): boolean {
+  const base = vpnLogsBaseDir();
+  const rel = path.relative(base, path.resolve(absPath));
+  if (rel === "" || rel.startsWith(".." + path.sep) || rel === "..") return false;
+  return !path.isAbsolute(rel);
+}
+
 function escapeHtml(raw: string): string {
   return raw
     .replace(/&/g, "&amp;")
@@ -64,19 +78,29 @@ function buildPlainTextLogHtml(profileName: string, filePath: string): string {
 <html>
 <head>
   <meta charset="utf-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
   <title>${escapeHtml(title)}</title>
   <style>
     html, body { margin: 0; min-height: 100%; background: #131313; color: #e5e2e1; }
     body { font-family: "JetBrains Mono", "Cascadia Code", "SFMono-Regular", Consolas, monospace; font-size: 12px; line-height: 1.55; }
     header { position: sticky; top: 0; padding: 10px 14px; background: #001c3a; border-bottom: 1px solid #414753; font-family: Inter, "Segoe UI", sans-serif; }
+    .log-head-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    .log-head-text { min-width: 0; flex: 1; }
     header strong { display: block; color: #a7c8ff; font-size: 13px; }
     header span { display: block; margin-top: 2px; color: #c1c6d5; font-size: 11px; overflow-wrap: anywhere; }
+    #clearLog { flex-shrink: 0; margin-top: 2px; padding: 6px 12px; font-size: 12px; font-family: inherit; cursor: pointer; color: #e5e2e1; background: #2f486a; border: 1px solid #414753; border-radius: 6px; }
+    #clearLog:hover { background: #3d5a82; }
+    #clearLog:disabled { opacity: 0.55; cursor: not-allowed; }
     pre { margin: 0; padding: 14px; white-space: pre-wrap; word-break: break-word; }
   </style>
 </head>
 <body>
-  <header><strong>${escapeHtml(title)}</strong><span>${escapeHtml(filePath)}</span></header>
+  <header>
+    <div class="log-head-row">
+      <div class="log-head-text"><strong>${escapeHtml(title)}</strong><span>${escapeHtml(filePath)}</span></div>
+      <button type="button" id="clearLog" onclick="(function(){var b=document.getElementById('clearLog');if(!window.fvpnLogWindow)return;b.disabled=true;window.fvpnLogWindow.clearLogFile().finally(function(){b.disabled=false;});})()">Clear log</button>
+    </div>
+  </header>
   <pre>${escapeHtml(content)}</pre>
 </body>
 </html>`;
@@ -92,6 +116,7 @@ function openPlainTextLogWindow(profileName: string): string {
   const title = `VPN Log - ${profileName}`;
   const existing = logWindows.get(filePath);
   if (existing && !existing.isDestroyed()) {
+    logWindowMeta.set(existing, { profileName, filePath });
     loadPlainTextLog(existing, profileName, filePath);
     existing.show();
     existing.focus();
@@ -109,9 +134,11 @@ function openPlainTextLogWindow(profileName: string): string {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
+      preload: path.join(__dirname, "log-window-preload.js"),
     },
   });
   logWindows.set(filePath, win);
+  logWindowMeta.set(win, { profileName, filePath });
   win.on("closed", () => logWindows.delete(filePath));
   loadPlainTextLog(win, profileName, filePath);
   return filePath;
@@ -376,6 +403,24 @@ if (!gotLock) {
     });
     ipcMain.handle("app:openVpnLog", (_e, name: string) => {
       return openPlainTextLogWindow(name);
+    });
+    ipcMain.handle("vpnLog:clearFocusedWindow", (event) => {
+      const win = BrowserWindow.fromWebContents(event.sender);
+      if (!win || win.isDestroyed()) return;
+      const meta = logWindowMeta.get(win);
+      if (!meta) return;
+      const resolved = path.resolve(meta.filePath);
+      if (!isPathUnderVpnLogsDir(resolved)) {
+        console.warn("[vpnLog] clear rejected: path outside vpn logs dir", resolved);
+        return;
+      }
+      try {
+        fs.mkdirSync(path.dirname(resolved), { recursive: true, mode: 0o755 });
+        fs.writeFileSync(resolved, "", { mode: 0o600 });
+      } catch (e) {
+        console.warn("[vpnLog] clear failed", e);
+      }
+      loadPlainTextLog(win, meta.profileName, resolved);
     });
     ipcMain.handle("profiles:list", () => profileService.listProfiles());
     ipcMain.handle("profiles:save", async (_e, p) => {

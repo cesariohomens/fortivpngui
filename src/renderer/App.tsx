@@ -249,11 +249,6 @@ export default function App() {
   const loginTargetRef = useRef<string | null>(null);
   const loginOtpViaStdinRef = useRef(false);
 
-  const [barrOtpOpen, setBarrOtpOpen] = useState(false);
-  const [barrOtpTarget, setBarrOtpTarget] = useState<string | null>(null);
-  const [barrOtpVal, setBarrOtpVal] = useState("");
-  const [showBarrOtp, setShowBarrOtp] = useState(false);
-
   const [gwCertDlg, setGwCertDlg] = useState<{ profileName: string; digest: string; body: string } | null>(null);
   const [changelogOpen, setChangelogOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
@@ -341,15 +336,28 @@ export default function App() {
       const name = ev.name;
       if (loginOpenRef.current && loginTargetRef.current === name && loginOtpViaStdinRef.current) return;
       const profile = profilesRef.current.find((x) => x.name === name);
-      if (!profile || profile.device_type !== "fortigate" || profile.always_ask_otp) return;
-      setLoginOtpViaStdin(true);
-      setLoginChallengeExplicitOtp(true);
-      setLoginKind("challenge");
-      setLoginTarget(name);
-      setLoginUser(profile.username);
-      setLoginPass(profile.password);
-      setLoginOtp("");
-      setLoginOpen(true);
+      if (!profile) return;
+      if (profile.device_type === "fortigate") {
+        if (profile.always_ask_otp) return;
+        setLoginOtpViaStdin(true);
+        setLoginChallengeExplicitOtp(true);
+        setLoginKind("challenge");
+        setLoginTarget(name);
+        setLoginUser(profile.username);
+        setLoginPass(profile.password);
+        setLoginOtp("");
+        setLoginOpen(true);
+      } else if (profile.device_type === "barracuda") {
+        if (!profile.always_ask_otp) return;
+        setLoginOtpViaStdin(true);
+        setLoginChallengeExplicitOtp(true);
+        setLoginKind("challenge");
+        setLoginTarget(name);
+        setLoginUser(profile.username);
+        setLoginPass(profile.password);
+        setLoginOtp("");
+        setLoginOpen(true);
+      }
     });
   }, []);
 
@@ -465,13 +473,6 @@ export default function App() {
     if (!p) return;
     if (p.device_type === "fortigate" && !ofvPath) {
       notify("openfortivpn not found in PATH.");
-      return;
-    }
-    if (p.device_type === "barracuda" && p.always_ask_otp) {
-      setBarrOtpTarget(name);
-      setBarrOtpVal("");
-      setShowBarrOtp(false);
-      setBarrOtpOpen(true);
       return;
     }
     if (p.device_type === "fortigate" && p.always_ask_otp) {
@@ -703,7 +704,7 @@ export default function App() {
         return;
       }
       const ok = await window.fvpn.submitFortigateStdinOtp(loginTarget, loginOtp.trim());
-      if (!ok) notify("Could not send the token (no active openfortivpn for this profile).");
+      if (!ok) notify("Could not send the token (no active VPN process for this profile).");
       setLoginOpen(false);
       setLoginKind(null);
       setLoginTarget(null);
@@ -753,35 +754,6 @@ export default function App() {
       await window.fvpn.stopVpn(target);
     } catch (e) {
       console.warn("[login] stop after cancel failed", e);
-    }
-  };
-
-  const submitBarrOtp = async () => {
-    if (!barrOtpTarget) return;
-    if (!barrOtpVal.trim()) {
-      notify("Enter the one-time password.");
-      return;
-    }
-    try {
-      await window.fvpn.startVpn(barrOtpTarget, { otp: barrOtpVal.trim() });
-    } catch (e) {
-      notify((e as Error).message);
-    }
-    setBarrOtpOpen(false);
-    setBarrOtpTarget(null);
-    setBarrOtpVal("");
-  };
-
-  const cancelBarrOtp = async () => {
-    const target = barrOtpTarget;
-    setBarrOtpOpen(false);
-    setBarrOtpTarget(null);
-    setBarrOtpVal("");
-    if (!target) return;
-    try {
-      await window.fvpn.stopVpn(target);
-    } catch (e) {
-      console.warn("[barracuda-otp] stop after cancel failed", e);
     }
   };
 
@@ -1383,7 +1355,7 @@ export default function App() {
         <DialogContent dividers>
           {profileDraft.device_type === "barracuda" && (
             <Alert severity="info" sx={{ mb: 2 }}>
-              Barracuda uses gateway, username, password, static OTP and debug. Fortigate certificate, PPPD, routing and SSL options are stored but not sent to barracudavpn.
+              Barracuda uses gateway, username, password, and debug. With &quot;Always ask for OTP&quot;, the token is sent on stdin (like a terminal); set &quot;OTP prompt string&quot; if the default detection does not match your client output. Fortigate certificate and other options are stored but not sent to barracudavpn.
             </Alert>
           )}
           {profileEditorTab === 0 ? (
@@ -1476,7 +1448,13 @@ export default function App() {
                   <FormControlLabel control={<Checkbox checked={profileDraft.set_dns} onChange={(_, c) => setProfileDraft({ ...profileDraft, set_dns: c })} />} label="Set DNS" />
                   <FormControlLabel control={<Checkbox checked={profileDraft.debug} onChange={(_, c) => setProfileDraft({ ...profileDraft, debug: c })} />} label="Debug" />
                   <TextField label="Realm" value={profileDraft.realm} onChange={(e) => setProfileDraft({ ...profileDraft, realm: e.target.value })} />
-                  <TextField label="OTP prompt string" value={profileDraft.otp_prompt} onChange={(e) => setProfileDraft({ ...profileDraft, otp_prompt: e.target.value })} />
+                  <TextField
+                    label="OTP prompt string"
+                    value={profileDraft.otp_prompt}
+                    onChange={(e) => setProfileDraft({ ...profileDraft, otp_prompt: e.target.value })}
+                    helperText="When non-empty, stdin OTP opens if a log line matches (plain substring or JavaScript regex). When empty, OpenFortiGUI-style defaults apply (e.g. “Please”, “Two-factor authentication”, “one-time password”). Used for Fortigate and Barracuda."
+                    fullWidth
+                  />
                   <FormControlLabel control={<Checkbox checked={profileDraft.always_ask_otp} onChange={(_, c) => setProfileDraft({ ...profileDraft, always_ask_otp: c })} />} label="Always ask for OTP" />
                   <TextField label="OTP delay" type="number" value={profileDraft.otp_delay} onChange={(e) => setProfileDraft({ ...profileDraft, otp_delay: Number.parseInt(e.target.value, 10) || 0 })} />
                   <FormControlLabel control={<Checkbox checked={profileDraft.no_ftm_push} onChange={(_, c) => setProfileDraft({ ...profileDraft, no_ftm_push: c })} />} label="No FortiToken Mobile push" />
@@ -1580,37 +1558,6 @@ export default function App() {
         <DialogActions>
           <Button onClick={() => void cancelLogin()}>Cancel</Button>
           <Button variant="contained" onClick={() => void submitLogin()}>
-            Submit
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      <Dialog open={barrOtpOpen} onClose={() => void cancelBarrOtp()} maxWidth="xs" fullWidth>
-        <DialogTitle>One-time password</DialogTitle>
-        <DialogContent>
-          <TextField
-            autoFocus
-            fullWidth
-            margin="dense"
-            label="OTP"
-            type={showBarrOtp ? "text" : "password"}
-            value={barrOtpVal}
-            onChange={(e) => setBarrOtpVal(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && void submitBarrOtp()}
-            InputProps={{
-              endAdornment: (
-                <InputAdornment position="end">
-                  <IconButton size="small" onClick={() => setShowBarrOtp((v) => !v)}>
-                    {showBarrOtp ? <VisibilityOff /> : <Visibility />}
-                  </IconButton>
-                </InputAdornment>
-              ),
-            }}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => void cancelBarrOtp()}>Cancel</Button>
-          <Button variant="contained" onClick={() => void submitBarrOtp()}>
             Submit
           </Button>
         </DialogActions>
