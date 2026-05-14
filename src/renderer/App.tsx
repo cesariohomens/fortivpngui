@@ -59,7 +59,7 @@ import { CHANGELOG_REV } from "../../shared/constants";
 type ViewId = "vpn" | "groups" | "settings" | "logs";
 
 const NAME_RE = /^[a-zA-ZäöüÄÖÜ0-9 \-_]{3,}$/;
-const navWidth = 280;
+const navWidth = 224;
 
 const colors = {
   background: "#131313",
@@ -911,22 +911,22 @@ export default function App() {
         bottom={0}
         display={{ xs: "none", md: "flex" }}
         flexDirection="column"
-        py={3}
+        py={2}
       >
-        <Box px={2} mb={3} display="flex" alignItems="center" gap={1.5}>
-          <Box width={40} height={40} borderRadius={2} bgcolor={colors.primaryContainer} display="flex" alignItems="center" justifyContent="center">
-            <SecurityIcon />
+        <Box px={1.5} mb={2} display="flex" alignItems="center" gap={1}>
+          <Box width={32} height={32} borderRadius={1.5} bgcolor={colors.primaryContainer} display="flex" alignItems="center" justifyContent="center" flexShrink={0}>
+            <SecurityIcon fontSize="small" />
           </Box>
-          <Box>
-            <Typography variant="h6" color={colors.primary} fontWeight={800} lineHeight={1}>
+          <Box minWidth={0}>
+            <Typography variant="body2" color={colors.primary} fontWeight={800} lineHeight={1.1} noWrap>
               FortiVPN GUI
             </Typography>
-            <Typography variant="caption" color={colors.muted}>
+            <Typography variant="caption" color={colors.muted} noWrap display="block">
               OpenFortiGUI flow
             </Typography>
           </Box>
         </Box>
-        <Stack px={1} spacing={0.5} flex={1}>
+        <Stack px={1} spacing={0.25}>
           {[
             ["vpn", "VPN", <VpnKeyIcon />],
             ["groups", "VPN-Groups", <GroupWorkIcon />],
@@ -938,12 +938,15 @@ export default function App() {
               selected={view === id}
               onClick={() => setView(id as ViewId)}
               sx={{
-                borderRadius: 2,
+                borderRadius: 1.5,
+                minHeight: 32,
+                py: 0.25,
+                px: 1,
                 color: view === id ? colors.primary : colors.muted,
                 "&.Mui-selected": { bgcolor: colors.secondaryContainer, color: colors.text },
               }}
             >
-              <Box mr={1.5} display="flex">
+              <Box mr={1} display="flex" alignItems="center" sx={{ "& svg": { fontSize: 19 } }}>
                 {icon}
               </Box>
               <Typography variant="body2" fontWeight={view === id ? 700 : 500}>
@@ -952,9 +955,10 @@ export default function App() {
             </ListItemButton>
           ))}
         </Stack>
-        <Stack px={1} spacing={0.5}>
-          <ListItemButton sx={{ borderRadius: 2, color: colors.muted }} onClick={() => setAboutOpen(true)}>
-            <InfoIcon sx={{ mr: 1.5 }} />
+        <Box flex={1} />
+        <Stack px={1} spacing={0.25}>
+          <ListItemButton sx={{ borderRadius: 1.5, minHeight: 32, py: 0.25, px: 1, color: colors.muted }} onClick={() => setAboutOpen(true)}>
+            <InfoIcon sx={{ mr: 1, fontSize: 19 }} />
             <Typography variant="body2">About</Typography>
           </ListItemButton>
         </Stack>
