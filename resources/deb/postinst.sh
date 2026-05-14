@@ -1,9 +1,18 @@
 #!/bin/sh
 set -e
-# Optional: install sudoers template (commented out by default — admin should merge manually)
-# if [ ! -f /etc/sudoers.d/fortivpngui ] && [ -f /opt/fortivpngui/resources/sudo/fortivpngui.sudoers ]; then
-#   install -m 0440 /opt/fortivpngui/resources/sudo/fortivpngui.sudoers /etc/sudoers.d/fortivpngui
-# fi
+
+SUDOERS_SRC=/opt/fortivpngui/resources/sudo/fortivpngui.sudoers
+SUDOERS_DST=/etc/sudoers.d/fortivpngui
+
+if [ -f "$SUDOERS_SRC" ]; then
+  install -m 0440 -o root -g root "$SUDOERS_SRC" "$SUDOERS_DST"
+  if command -v visudo >/dev/null 2>&1; then
+    if ! visudo -c -f "$SUDOERS_DST" 2>/dev/null; then
+      echo "fortivpngui: visudo rejected $SUDOERS_DST — removing drop-in; fix the file and install manually." >&2
+      rm -f "$SUDOERS_DST"
+    fi
+  fi
+fi
 
 # Chromium SUID sandbox: without 4755, the binary aborts before JS runs (--no-sandbox in .desktop is not enough for /opt/.../fortivpngui alone).
 SB=/opt/fortivpngui/chrome-sandbox

@@ -19,6 +19,7 @@ import {
   MenuItem,
   Paper,
   Select,
+  Snackbar,
   Stack,
   Tab,
   Table,
@@ -54,7 +55,8 @@ import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
 import VpnKeyIcon from "@mui/icons-material/VpnKey";
 import type { MainSettings, VpnGroup, VpnProfile, VpnStartCredentials, VpnTrafficStats } from "../../shared/types";
-import { CHANGELOG_REV } from "../../shared/constants";
+import { APP_VERSION, CHANGELOG_REV } from "../../shared/constants";
+import { scheduleAfterOverlayClose } from "./scheduleAfterOverlayClose";
 
 type ViewId = "vpn" | "groups" | "settings" | "logs";
 
@@ -260,8 +262,10 @@ export default function App() {
   const [wizardAesKey, setWizardAesKey] = useState("");
   const [wizardAesIv, setWizardAesIv] = useState("");
   const [wizardUseStore, setWizardUseStore] = useState(false);
-  /** Native `alert()` while a MUI `Dialog` is open breaks focus/pointer handling in Electron; use an in-app dialog for import results. */
+  /** Long-form import output (kept as a dialog). Transient messages use `notify` + Snackbar instead of native `alert()`. */
   const [importResultText, setImportResultText] = useState<string | null>(null);
+  const [notifyText, setNotifyText] = useState<string | null>(null);
+  const notify = useCallback((message: string) => setNotifyText(message), []);
   const settingsPromptsDone = useRef(false);
 
   const refresh = useCallback(async () => {
@@ -460,7 +464,7 @@ export default function App() {
     const p = profiles.find((x) => x.name === name);
     if (!p) return;
     if (p.device_type === "fortigate" && !ofvPath) {
-      alert("openfortivpn not found in PATH.");
+      notify("openfortivpn not found in PATH.");
       return;
     }
     if (p.device_type === "barracuda" && p.always_ask_otp) {
@@ -490,7 +494,7 @@ export default function App() {
     try {
       await window.fvpn.startVpn(name);
     } catch (e) {
-      alert((e as Error).message);
+      notify((e as Error).message);
     }
   };
 
@@ -516,7 +520,7 @@ export default function App() {
   const editProfile = (p: VpnProfile) => {
     if (p.origin === "global") return;
     if (isProfileActive(p.name)) {
-      alert("The VPN state must be disconnected to perform this action.");
+      notify("The VPN state must be disconnected to perform this action.");
       return;
     }
     setProfileDraft({ ...p });
@@ -531,19 +535,19 @@ export default function App() {
   const saveProfile = async () => {
     const name = profileDraft.name.trim();
     if (!NAME_RE.test(name)) {
-      alert("You must set a valid name for the VPN.");
+      notify("You must set a valid name for the VPN.");
       return;
     }
     if (!profileDraft.gateway_host.trim()) {
-      alert("You must set a gateway for the VPN.");
+      notify("You must set a gateway for the VPN.");
       return;
     }
     if (!profileDraft.gateway_port) {
-      alert("You must set a gateway-port for the VPN.");
+      notify("You must set a gateway-port for the VPN.");
       return;
     }
     if (credentialsEnabled && !profileDraft.username.trim()) {
-      alert("You must set a valid username if credentials are enabled.");
+      notify("You must set a valid username if credentials are enabled.");
       return;
     }
     const next: VpnProfile = {
@@ -565,7 +569,7 @@ export default function App() {
       setSelectedProfileName(name);
       await refresh();
     } catch (e) {
-      alert((e as Error).message);
+      notify((e as Error).message);
     }
   };
 
@@ -573,12 +577,12 @@ export default function App() {
     const p = profiles.find((x) => x.name === name);
     if (!p) return;
     if (p.origin === "global") {
-      alert("Global VPN-Profiles cannot be deleted.");
+      notify("Global VPN-Profiles cannot be deleted.");
       return;
     }
     const st = status[name];
     if (st === "connected" || st === "connecting") {
-      alert("The VPN state must be disconnected to perform this action.");
+      notify("The VPN state must be disconnected to perform this action.");
       return;
     }
     if (!confirm(`Warning, the selected vpn will be deleted, continue?\n\n${name}`)) return;
@@ -598,7 +602,7 @@ export default function App() {
       setSelectedProfileName(newName.trim());
       await refresh();
     } catch (e) {
-      alert((e as Error).message);
+      notify((e as Error).message);
     }
   };
 
@@ -619,7 +623,7 @@ export default function App() {
   const saveGroup = async () => {
     const name = groupDraftName.trim();
     if (!NAME_RE.test(name)) {
-      alert("You must set a name for the VPN-group.");
+      notify("You must set a name for the VPN-group.");
       return;
     }
     const localMembers: string[] = [];
@@ -628,7 +632,7 @@ export default function App() {
       const [origin, memberName] = key.split(":") as ["local" | "global", string];
       const p = profiles.find((x) => x.name === memberName && x.origin === origin);
       if (!p || !p.username || !p.password) {
-        alert(`You must set username and password for each group member. First missing on VPN: ${memberName}`);
+        notify(`You must set username and password for each group member. First missing on VPN: ${memberName}`);
         return;
       }
       if (origin === "local") localMembers.push(memberName);
@@ -641,7 +645,7 @@ export default function App() {
       setSelectedGroupName(name);
       await refresh();
     } catch (e) {
-      alert((e as Error).message);
+      notify((e as Error).message);
     }
   };
 
@@ -658,7 +662,7 @@ export default function App() {
       setSelectedGroupName(newName);
       await refresh();
     } catch (e) {
-      alert((e as Error).message);
+      notify((e as Error).message);
     }
   };
 
@@ -695,11 +699,11 @@ export default function App() {
     if (!loginTarget || !loginKind) return;
     if (loginKind === "challenge" && loginOtpViaStdin) {
       if (!loginOtp.trim()) {
-        alert("Enter the one-time password.");
+        notify("Enter the one-time password.");
         return;
       }
       const ok = await window.fvpn.submitFortigateStdinOtp(loginTarget, loginOtp.trim());
-      if (!ok) alert("Could not send the token (no active openfortivpn for this profile).");
+      if (!ok) notify("Could not send the token (no active openfortivpn for this profile).");
       setLoginOpen(false);
       setLoginKind(null);
       setLoginTarget(null);
@@ -708,15 +712,15 @@ export default function App() {
       return;
     }
     if (!loginUser.trim()) {
-      alert("This VPN profile has no username. Edit the profile and set credentials.");
+      notify("This VPN profile has no username. Edit the profile and set credentials.");
       return;
     }
     if (loginKind === "always" && !loginOtp.trim()) {
-      alert("Enter the one-time password.");
+      notify("Enter the one-time password.");
       return;
     }
     if (loginKind === "challenge" && loginChallengeExplicitOtp && !loginOtp.trim()) {
-      alert("Enter the one-time password.");
+      notify("Enter the one-time password.");
       return;
     }
     if (loginOtp.trim()) fortigateLastConnectHadOtp.current[loginTarget] = true;
@@ -724,7 +728,7 @@ export default function App() {
     try {
       await window.fvpn.startVpn(loginTarget, creds);
     } catch (e) {
-      alert((e as Error).message);
+      notify((e as Error).message);
     }
     setLoginOpen(false);
     setLoginKind(null);
@@ -755,13 +759,13 @@ export default function App() {
   const submitBarrOtp = async () => {
     if (!barrOtpTarget) return;
     if (!barrOtpVal.trim()) {
-      alert("Enter the one-time password.");
+      notify("Enter the one-time password.");
       return;
     }
     try {
       await window.fvpn.startVpn(barrOtpTarget, { otp: barrOtpVal.trim() });
     } catch (e) {
-      alert((e as Error).message);
+      notify((e as Error).message);
     }
     setBarrOtpOpen(false);
     setBarrOtpTarget(null);
@@ -807,13 +811,13 @@ export default function App() {
 
   const mergeOfgMain = async () => {
     const next = await window.fvpn.mergeOpenfortiguiMain();
-    if (!next) alert("No ~/.openfortigui/main.conf or no mappable keys found.");
+    if (!next) notify("No ~/.openfortigui/main.conf or no mappable keys found.");
     else setSettings(next);
   };
 
   const finishWizard = async () => {
     if (wizardAesKey.length !== 16 || wizardAesIv.length !== 16) {
-      alert("Both AES-Key and AES-IV must be 128bit (16 chars) long.");
+      notify("Both AES-Key and AES-IV must be 128bit (16 chars) long.");
       return;
     }
     await saveSettingsUi({ aeskey: wizardAesKey, aesiv: wizardAesIv, use_system_password_store: wizardUseStore, setupwizard: true });
@@ -987,7 +991,7 @@ export default function App() {
               FortiVPN GUI
             </Typography>
             <Typography variant="caption" color={colors.muted} noWrap display="block">
-              OpenFortiGUI flow
+              v{APP_VERSION}
             </Typography>
           </Box>
         </Box>
@@ -1265,11 +1269,17 @@ export default function App() {
         </Box>
       </Box>
 
-      <Menu anchorEl={addMenuAnchor} open={Boolean(addMenuAnchor)} onClose={() => setAddMenuAnchor(null)}>
+      <Menu
+        anchorEl={addMenuAnchor}
+        open={Boolean(addMenuAnchor)}
+        onClose={() => setAddMenuAnchor(null)}
+        disableScrollLock
+        transitionDuration={{ enter: 0, exit: 0 }}
+      >
         <MenuItem
           onClick={() => {
             setAddMenuAnchor(null);
-            openNewProfile();
+            scheduleAfterOverlayClose(() => openNewProfile());
           }}
         >
           VPN
@@ -1277,19 +1287,26 @@ export default function App() {
         <MenuItem
           onClick={() => {
             setAddMenuAnchor(null);
-            openNewGroup();
+            scheduleAfterOverlayClose(() => openNewGroup());
           }}
         >
           VPN-Group
         </MenuItem>
       </Menu>
 
-      <Menu open={profileCtx !== null} onClose={() => setProfileCtx(null)} anchorReference="anchorPosition" anchorPosition={profileCtx ? { top: profileCtx.top, left: profileCtx.left } : undefined}>
+      <Menu
+        open={profileCtx !== null}
+        onClose={() => setProfileCtx(null)}
+        anchorReference="anchorPosition"
+        anchorPosition={profileCtx ? { top: profileCtx.top, left: profileCtx.left } : undefined}
+        disableScrollLock
+        transitionDuration={{ enter: 0, exit: 0 }}
+      >
         <MenuItem
           onClick={() => {
             const name = profileCtx?.name;
             setProfileCtx(null);
-            if (name) void startVpnFlow(name);
+            if (name) scheduleAfterOverlayClose(() => void startVpnFlow(name));
           }}
         >
           Connect
@@ -1309,7 +1326,7 @@ export default function App() {
           onClick={() => {
             const p = profiles.find((x) => x.name === profileCtx?.name);
             setProfileCtx(null);
-            if (p) editProfile(p);
+            if (p) scheduleAfterOverlayClose(() => editProfile(p));
           }}
         >
           Edit
@@ -1318,7 +1335,7 @@ export default function App() {
           onClick={() => {
             const name = profileCtx?.name;
             setProfileCtx(null);
-            if (name) void duplicateProfile(name);
+            if (name) scheduleAfterOverlayClose(() => void duplicateProfile(name));
           }}
         >
           Copy
@@ -1328,7 +1345,7 @@ export default function App() {
           onClick={() => {
             const name = profileCtx?.name;
             setProfileCtx(null);
-            if (name) void deleteProfile(name);
+            if (name) scheduleAfterOverlayClose(() => void deleteProfile(name));
           }}
         >
           Delete
@@ -1338,7 +1355,7 @@ export default function App() {
           onClick={() => {
             const name = profileCtx?.name;
             setProfileCtx(null);
-            if (name) void window.fvpn.openVpnLog(name);
+            if (name) scheduleAfterOverlayClose(() => void window.fvpn.openVpnLog(name));
           }}
         >
           View logs
@@ -1369,7 +1386,12 @@ export default function App() {
               <Paper sx={sectionSx()}>
                 <SectionTitle icon={<TuneIcon fontSize="small" sx={{ color: colors.primary }} />} title="Common" />
                 <Stack p={2} spacing={2}>
-                  <TextField label="Name" value={profileDraft.name} onChange={(e) => setProfileDraft({ ...profileDraft, name: e.target.value })} />
+                  <TextField
+                    autoFocus={!profileOriginalName}
+                    label="Name"
+                    value={profileDraft.name}
+                    onChange={(e) => setProfileDraft({ ...profileDraft, name: e.target.value })}
+                  />
                   <Stack direction={{ xs: "column", sm: "row" }} gap={2}>
                     <TextField label="VPN-Server" fullWidth value={profileDraft.gateway_host} onChange={(e) => setProfileDraft({ ...profileDraft, gateway_host: e.target.value })} />
                     <Select value={profileDraft.device_type} onChange={(e) => setProfileDraft({ ...profileDraft, device_type: e.target.value as VpnProfile["device_type"] })} sx={{ minWidth: 180 }}>
@@ -1496,7 +1518,7 @@ export default function App() {
         <DialogTitle>{groupOriginalName ? `Edit VPN-Group - ${groupOriginalName}` : "Add VPN-Group"}</DialogTitle>
         <DialogContent dividers>
           <Stack spacing={2}>
-            <TextField label="Name" value={groupDraftName} onChange={(e) => setGroupDraftName(e.target.value)} />
+            <TextField autoFocus={!groupOriginalName} label="Name" value={groupDraftName} onChange={(e) => setGroupDraftName(e.target.value)} />
             <Paper sx={sectionSx()}>
               <SectionTitle title="Members" />
               <List dense>
@@ -1607,7 +1629,7 @@ export default function App() {
                 try {
                   const saved = await window.fvpn.trustGatewayDigest(d.profileName, d.digest);
                   if (!saved) {
-                    alert("Could not add this digest to the whitelist (invalid digest or already trusted).");
+                    notify("Could not add this digest to the whitelist (invalid digest or already trusted).");
                     setGwCertDlg(null);
                     await refresh();
                     return;
@@ -1617,7 +1639,7 @@ export default function App() {
                   await refresh();
                   await startVpnFlow(d.profileName);
                 } catch (e) {
-                  alert((e as Error).message);
+                  notify((e as Error).message);
                 }
               })();
             }}
@@ -1727,6 +1749,25 @@ export default function App() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <Snackbar
+        open={notifyText !== null}
+        autoHideDuration={9000}
+        onClose={(_, reason) => {
+          if (reason === "clickaway") return;
+          setNotifyText(null);
+        }}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert
+          severity="warning"
+          onClose={() => setNotifyText(null)}
+          variant="outlined"
+          sx={{ maxWidth: 520, whiteSpace: "pre-wrap", bgcolor: colors.surface, color: colors.text, borderColor: colors.outline }}
+        >
+          {notifyText}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }

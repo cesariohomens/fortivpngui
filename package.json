@@ -44,7 +44,7 @@
     "wait-on": "^8.0.1"
   },
   "build": {
-    "appId": "me.fortivpngui.app",
+    "appId": "com.cesariogarcia.fortivpngui",
     "productName": "fortivpngui",
     "icon": "build/icons",
     "directories": {
@@ -60,7 +60,7 @@
       "category": "Network",
       "executableArgs": ["--no-sandbox"],
       "executableName": "fortivpngui",
-      "maintainer": "fortivpngui@localhost",
+      "maintainer": "cesario@cesariogarcia.com",
       "desktop": {
         "Name": "FortiVPN GUI",
         "StartupWMClass": "fortivpngui"

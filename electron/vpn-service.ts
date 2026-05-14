@@ -390,3 +390,9 @@ export async function stopVpn(profileName: string): Promise<void> {
   onConnStateChange(profileName, prev, "disconnected");
   emit("vpn:status", { name: profileName, state: "disconnected" });
 }
+
+/** Sync cleanup before the Electron process exits: stop VPN helpers and remove TMPDIR artefacts. */
+export function cleanupTempFilesOnQuit(): void {
+  ofv.stopEveryOpenfortivpnAndSweepTemp();
+  barr.stopEveryBarracudaAndSweepTemp();
+}

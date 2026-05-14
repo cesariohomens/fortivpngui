@@ -1,2 +1,3 @@
-# Trailing * allows: -c /path/to.conf, --otp, --trusted-cert (digest), -v, etc.
-YOUR_USERNAME ALL=(root) NOPASSWD: /usr/bin/openfortivpn *
+# Installed to /etc/sudoers.d/ by the .deb postinst. Trailing * matches -c, --otp, -v, etc.
+# Any user may run openfortivpn as root without a password (same effect as a shared workstation rule).
+ALL ALL=(root) NOPASSWD: /usr/bin/openfortivpn *

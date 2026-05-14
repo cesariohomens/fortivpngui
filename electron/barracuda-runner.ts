@@ -30,7 +30,40 @@ WRITEDNS = NO
 .
 `;
 
-const barracudaProcesses = new Map<string, { proc: ChildProcess; timer?: NodeJS.Timeout }>();
+const barracudaProcesses = new Map<string, { proc: ChildProcess; timer?: NodeJS.Timeout; tempDir: string }>();
+
+function removeBarracudaTempDir(dir: string): void {
+  try {
+    fs.rmSync(dir, { recursive: true, force: true });
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Remove any `fortivpngui-barracuda-*` dirs left under the system temp directory. */
+export function sweepBarracudaTempDirs(): void {
+  let entries: string[];
+  try {
+    entries = fs.readdirSync(os.tmpdir());
+  } catch {
+    return;
+  }
+  const prefix = "fortivpngui-barracuda-";
+  for (const ent of entries) {
+    if (!ent.startsWith(prefix)) continue;
+    const full = path.join(os.tmpdir(), ent);
+    try {
+      if (fs.statSync(full).isDirectory()) fs.rmSync(full, { recursive: true, force: true });
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+export function stopEveryBarracudaAndSweepTemp(): void {
+  for (const name of [...barracudaProcesses.keys()]) stopBarracuda(name);
+  sweepBarracudaTempDirs();
+}
 
 function readTunStats(): VpnTrafficStats | null {
   try {
@@ -53,7 +86,9 @@ export function stopBarracuda(name: string): void {
   const b = barracudaProcesses.get(name);
   if (b?.timer) clearInterval(b.timer);
   spawn("barracudavpn", ["--stop"], { stdio: "ignore" });
+  const tempDir = b?.tempDir;
   barracudaProcesses.delete(name);
+  if (tempDir) removeBarracudaTempDir(tempDir);
 }
 
 export function startBarracuda(
@@ -117,6 +152,7 @@ export function startBarracuda(
     if (/failed/i.test(initialOutput)) {
       onStatus("disconnected");
       barracudaProcesses.delete(profile.name);
+      removeBarracudaTempDir(base);
       return;
     }
     startStatusPolling();
@@ -125,7 +161,8 @@ export function startBarracuda(
     onLog(`spawn error: ${err.message}`);
     onStatus("disconnected");
     barracudaProcesses.delete(profile.name);
+    removeBarracudaTempDir(base);
   });
 
-  barracudaProcesses.set(profile.name, { proc });
+  barracudaProcesses.set(profile.name, { proc, tempDir: base });
 }

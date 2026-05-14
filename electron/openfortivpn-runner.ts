@@ -74,6 +74,44 @@ export function buildOpenfortivpnConfig(profile: VpnProfile, password: string, o
 
 const running = new Map<string, { proc: ChildProcess; configPath: string }>();
 
+const FORTIVPNGUI_TMP_SUBDIR = "fortivpngui";
+
+function openfortivpnConfigDir(): string {
+  return path.join(os.tmpdir(), FORTIVPNGUI_TMP_SUBDIR);
+}
+
+/** Remove leftover `run-*.conf` (crash, failed spawn, etc.). */
+export function sweepOpenfortivpnConfigDir(): void {
+  const dir = openfortivpnConfigDir();
+  if (!fs.existsSync(dir)) return;
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  for (const ent of entries) {
+    if (!ent.isFile()) continue;
+    if (!/^run-.+\.conf$/.test(ent.name)) continue;
+    try {
+      fs.unlinkSync(path.join(dir, ent.name));
+    } catch {
+      /* ignore */
+    }
+  }
+  try {
+    fs.rmdirSync(dir);
+  } catch {
+    /* not empty or in use */
+  }
+}
+
+/** Stop every tracked openfortivpn and delete temp configs under TMPDIR/fortivpngui. */
+export function stopEveryOpenfortivpnAndSweepTemp(): void {
+  for (const name of [...running.keys()]) stopOpenfortivpn(name);
+  sweepOpenfortivpnConfigDir();
+}
+
 /**
  * Absolute path to openfortivpn for `sudo` argv.
  * Sudoers `NOPASSWD: /usr/bin/openfortivpn` only matches that path — not bare `openfortivpn`.
@@ -130,7 +168,7 @@ export function startOpenfortivpn(
   const name = profile.name;
   if (running.has(name)) stopOpenfortivpn(name);
 
-  const cfgDir = path.join(os.tmpdir(), "fortivpngui");
+  const cfgDir = openfortivpnConfigDir();
   fs.mkdirSync(cfgDir, { recursive: true });
   const configPath = path.join(cfgDir, `run-${name}-${Date.now()}.conf`);
   fs.writeFileSync(configPath, buildOpenfortivpnConfig(profile, password, otp), { mode: 0o600 });
@@ -155,6 +193,11 @@ export function startOpenfortivpn(
   const bin = resolveOpenfortivpnExecutable();
   if (!bin) {
     onLog({ profileName: name, line: "openfortivpn not found (install package or set OPENFORTIVPN_PATH)", stream: "stderr" });
+    try {
+      fs.unlinkSync(configPath);
+    } catch {
+      /* ignore */
+    }
     onExit(null);
     return;
   }
@@ -193,6 +236,12 @@ export function startOpenfortivpn(
     const cur = running.get(name);
     if (cur?.proc !== proc) return;
     onLog({ profileName: name, line: `spawn error: ${err.message}`, stream: "stderr" });
+    try {
+      fs.unlinkSync(configPath);
+    } catch {
+      /* ignore */
+    }
+    running.delete(name);
     onExit(null);
   });
 

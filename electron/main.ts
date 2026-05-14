@@ -145,7 +145,7 @@ function createWindow() {
   const s = readMainSettings();
   const showWindow = !s.start_minimized || !s.setupwizard || s.changelogrev_read < CHANGELOG_REV;
   mainWindow = new BrowserWindow({
-    width: 1024,
+    width: Math.round(1024 * 1.2),
     height: 720,
     show: showWindow,
     autoHideMenuBar: true,
@@ -456,5 +456,6 @@ if (!gotLock) {
   });
   app.on("before-quit", () => {
     isQuitting = true;
+    vpn.cleanupTempFilesOnQuit();
   });
 }
