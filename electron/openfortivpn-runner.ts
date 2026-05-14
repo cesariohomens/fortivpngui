@@ -40,9 +40,9 @@ export function buildOpenfortivpnConfig(profile: VpnProfile, password: string, o
   if (password) lines.push(`password = ${password}`);
   if (otp) lines.push(`otp = ${otp}`);
   if (profile.realm) lines.push(`realm = ${profile.realm}`);
-  lines.push(`set-routes = ${profile.set_routes ? 1 : 0}`);
-  lines.push(`set-dns = ${profile.set_dns ? 1 : 0}`);
-  lines.push(`half-internet-routes = ${profile.half_internet_routers ? 1 : 0}`);
+  if (!profile.set_routes) lines.push("set-routes = 0");
+  if (profile.set_dns) lines.push("set-dns = 1");
+  if (profile.half_internet_routers) lines.push("half-internet-routes = 1");
   if (profile.persistent) lines.push(`persistent = 60`);
   if (profile.ca_file) lines.push(`ca-file = ${profile.ca_file}`);
   if (profile.user_cert) lines.push(`user-cert = ${profile.user_cert}`);
@@ -50,7 +50,7 @@ export function buildOpenfortivpnConfig(profile: VpnProfile, password: string, o
   for (const digest of parseTrustedCertDigests(profile.trusted_cert)) {
     lines.push(`trusted-cert = ${digest}`);
   }
-  if (!profile.verify_cert || profile.insecure_ssl) {
+  if (profile.insecure_ssl) {
     lines.push(`insecure-ssl = 1`);
   }
   if (profile.seclevel1) lines.push(`seclevel-1 = 1`);
@@ -59,7 +59,7 @@ export function buildOpenfortivpnConfig(profile: VpnProfile, password: string, o
     lines.push(`min-tls = ${minTls}`);
   }
   if (profile.pppd_no_peerdns) lines.push(`pppd-no-peerdns = 1`);
-  lines.push(`pppd-use-peerdns = ${profile.pppd_no_peerdns ? 0 : 1}`);
+  if (profile.pppd_no_peerdns) lines.push("pppd-use-peerdns = 0");
   if (profile.pppd_accept_remote) lines.push(`pppd-accept-remote = 1`);
   if (profile.pppd_log_file) lines.push(`pppd-log = ${profile.pppd_log_file}`);
   if (profile.pppd_plugin_file) lines.push(`pppd-plugin = ${profile.pppd_plugin_file}`);
@@ -136,9 +136,6 @@ export function startOpenfortivpn(
   }
 
   const args: string[] = [];
-  for (const d of digests) {
-    args.push(`--trusted-cert=${d}`);
-  }
   args.push("-c", configPath);
   if (profile.debug) args.push("-v");
   if (otp) {

@@ -90,7 +90,7 @@ const emptyProfile = (): VpnProfile => ({
   otp: "",
   realm: "",
   set_routes: true,
-  set_dns: true,
+  set_dns: false,
   half_internet_routers: false,
   persistent: false,
   ca_file: "",
