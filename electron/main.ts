@@ -429,6 +429,7 @@ if (!gotLock) {
       void refreshTrayMenu();
     });
     ipcMain.handle("vpn:status", (_e, name: string) => vpn.getVpnStatus(name));
+    ipcMain.handle("vpn:submitFortigateStdinOtp", (_e, profileName: string, otp: string) => vpn.submitFortigateStdinOtp(profileName, otp));
 
     ipcMain.handle("import:openfortigui", async () => {
       const result = await imp.importFromOpenfortigui();

@@ -17,6 +17,15 @@ function normalizeVpnStartArg(input?: string | VpnStartCredentials): { username?
   };
 }
 
+/** Feed OTP to a running openfortivpn (FortiGate 2FA prompt on stdin), like typing in a terminal. */
+export function submitFortigateStdinOtp(profileName: string, otp: string): boolean {
+  const t = otp.trim();
+  if (!t) return false;
+  const ok = ofv.writeOpenfortivpnStdinLine(profileName, t);
+  if (ok) fortigateStdinOtpPromptSent.delete(profileName);
+  return ok;
+}
+
 export type ConnState = "disconnected" | "connecting" | "connected";
 
 const status = new Map<string, ConnState>();
@@ -32,7 +41,7 @@ export type GatewayCertUiEvent =
 
 let gatewayCertUiHandler: ((ev: GatewayCertUiEvent) => void) | null = null;
 
-/** Evita guardar o mesmo digest várias vezes por sessão de tentativa de ligação. */
+/** Avoid saving the same digest multiple times in one connect attempt. */
 const trustedDigestAutoSaved = new Set<string>();
 
 function trustedAutoSaveKey(profileName: string, digest: string): string {
@@ -195,8 +204,21 @@ function isAnyBarracudaActive(profiles: VpnProfile[], exceptName?: string): bool
   return false;
 }
 
+/** One IPC per connect attempt until token submitted / tunnel up / stop (avoids duplicate modals). */
+const fortigateStdinOtpPromptSent = new Set<string>();
+
+function maybeEmitFortigateStdinOtpPrompt(profileName: string, line: string): void {
+  const matches =
+    /Two-factor authentication token\s*:/i.test(line) || /Please enter one-time password\s*:/i.test(line);
+  if (!matches) return;
+  if (fortigateStdinOtpPromptSent.has(profileName)) return;
+  fortigateStdinOtpPromptSent.add(profileName);
+  emit("vpn:fortigate-stdin-otp-prompt", { name: profileName });
+}
+
 function processFortigateLogLine(profileName: string, line: string, stream: "stdout" | "stderr"): void {
   appendVpnLogLine(profileName, stream, line);
+  maybeEmitFortigateStdinOtpPrompt(profileName, line);
   const iface = line.match(/\bInterface\s+([^\s.]+)\s+is\s+UP\b/i)?.[1];
   if (iface) startTrafficPoll(profileName, iface);
   const flush = certTracker.feedCertFailureLine(profileName, line);
@@ -257,7 +279,7 @@ function processFortigateLogLine(profileName: string, line: string, stream: "std
       trustedDigestAutoSaved.delete(key);
       emit("vpn:log", {
         name: profileName,
-        line: `[fortivpngui] Erro ao guardar trusted-cert: ${e instanceof Error ? e.message : String(e)}`,
+        line: `[fortivpngui] Failed to save trusted-cert: ${e instanceof Error ? e.message : String(e)}`,
         stream: "stderr",
       });
     });
@@ -318,6 +340,7 @@ export async function startVpn(profileName: string, arg?: string | VpnStartCrede
   onConnStateChange(profileName, prev, "connecting");
   emit("vpn:status", { name: profileName, state: "connecting" });
   clearTrustedAutoSaveForProfile(profileName);
+  fortigateStdinOtpPromptSent.delete(profileName);
   const trustedMerged = effectiveTrustedCertField(p);
   let loginPassword = effectivePassword;
   let otpArg: string | undefined;
@@ -346,6 +369,7 @@ export async function startVpn(profileName: string, arg?: string | VpnStartCrede
       emit("vpn:status", { name: profileName, state: "disconnected" });
     },
     () => {
+      fortigateStdinOtpPromptSent.delete(profileName);
       const prevS = status.get(profileName);
       status.set(profileName, "connected");
       onConnStateChange(profileName, prevS, "connected");
@@ -355,6 +379,7 @@ export async function startVpn(profileName: string, arg?: string | VpnStartCrede
 }
 
 export async function stopVpn(profileName: string): Promise<void> {
+  fortigateStdinOtpPromptSent.delete(profileName);
   const profiles = await profileService.listProfiles();
   const p = profiles.find((x) => x.name === profileName);
   if (p?.device_type === "barracuda") barr.stopBarracuda(profileName);

@@ -1,6 +1,6 @@
 export type DeviceType = "fortigate" | "barracuda";
 
-/** Credenciais opcionais na ligação (não gravadas no perfil). Compatível com `startVpn(name, otp)` (string só OTP). */
+/** Optional connect-time credentials (not stored on the profile). Compatible with `startVpn(name, otp)` (string = OTP only). */
 export interface VpnStartCredentials {
   username?: string;
   password?: string;
@@ -67,7 +67,7 @@ export interface MainSettings {
   changelogrev_read: number;
   use_system_password_store: boolean;
   sudo_preserve_env: boolean;
-  /** Bloqueia no UI opções de certificado inseguras (OpenFortiGUI `main/disallow_unsecure_certificates`). */
+  /** When true, insecure certificate options are hidden in the UI (OpenFortiGUI `main/disallow_unsecure_certificates`). */
   disallow_unsecure_certificates: boolean;
   globalvpnprofiles: string;
   localvpnprofiles: string;

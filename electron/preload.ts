@@ -18,6 +18,8 @@ contextBridge.exposeInMainWorld("fvpn", {
   startVpn: (name: string, arg?: string | VpnStartCredentials) => ipcRenderer.invoke("vpn:start", name, arg) as Promise<void>,
   stopVpn: (name: string) => ipcRenderer.invoke("vpn:stop", name) as Promise<void>,
   vpnStatus: (name: string) => ipcRenderer.invoke("vpn:status", name) as Promise<string>,
+  submitFortigateStdinOtp: (profileName: string, otp: string) =>
+    ipcRenderer.invoke("vpn:submitFortigateStdinOtp", profileName, otp) as Promise<boolean>,
   trustGatewayDigest: (profileName: string, digest: string) =>
     ipcRenderer.invoke("vpn:trustGatewayDigest", profileName, digest) as Promise<false | "profile" | "cache">,
   chooseDirectory: (initialPath?: string) => ipcRenderer.invoke("app:chooseDirectory", initialPath) as Promise<string | null>,
@@ -56,5 +58,10 @@ contextBridge.exposeInMainWorld("fvpn", {
     const fn = (_e: IpcRendererEvent, ev: { profileName: string; digest: string; body: string }) => cb(ev);
     ipcRenderer.on("vpn:gateway-cert-prompt", fn);
     return () => ipcRenderer.removeListener("vpn:gateway-cert-prompt", fn);
+  },
+  onFortigateStdinOtpPrompt: (cb: (ev: { name: string }) => void) => {
+    const fn = (_e: IpcRendererEvent, ev: { name: string }) => cb(ev);
+    ipcRenderer.on("vpn:fortigate-stdin-otp-prompt", fn);
+    return () => ipcRenderer.removeListener("vpn:fortigate-stdin-otp-prompt", fn);
   },
 });

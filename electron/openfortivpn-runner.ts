@@ -109,6 +109,16 @@ export function stopOpenfortivpn(name: string): void {
   running.delete(name);
 }
 
+/** Send one line to openfortivpn stdin (same as typing OTP at the terminal prompt). */
+export function writeOpenfortivpnStdinLine(profileName: string, text: string): boolean {
+  const r = running.get(profileName);
+  const stdin = r?.proc.stdin;
+  if (!stdin || r.proc.killed) return false;
+  const w = stdin as NodeJS.WritableStream & { writable?: boolean; destroyed?: boolean };
+  if (w.destroyed || w.writable === false) return false;
+  return w.write(`${text}\n`, "utf8") !== false;
+}
+
 export function startOpenfortivpn(
   profile: VpnProfile,
   password: string,
@@ -118,7 +128,7 @@ export function startOpenfortivpn(
   onTunnelUp?: () => void
 ): void {
   const name = profile.name;
-  if (running.has(name)) return;
+  if (running.has(name)) stopOpenfortivpn(name);
 
   const cfgDir = path.join(os.tmpdir(), "fortivpngui");
   fs.mkdirSync(cfgDir, { recursive: true });
@@ -153,7 +163,8 @@ export function startOpenfortivpn(
   const sudoArgs = [...(m.sudo_preserve_env ? ["-E"] : []), bin, ...args];
   const proc = spawn("sudo", sudoArgs, {
     env: { ...process.env },
-    stdio: ["ignore", "pipe", "pipe"],
+    /** pipe stdin so FortiGate 2FA can read the token like an interactive terminal (`read_password`). */
+    stdio: ["pipe", "pipe", "pipe"],
   });
 
   const push = (stream: "stdout" | "stderr", chunk: Buffer) => {
@@ -168,6 +179,8 @@ export function startOpenfortivpn(
   proc.stdout?.on("data", (d: Buffer) => push("stdout", d));
   proc.stderr?.on("data", (d: Buffer) => push("stderr", d));
   proc.on("exit", (code) => {
+    const cur = running.get(name);
+    if (cur?.proc !== proc) return;
     try {
       fs.unlinkSync(configPath);
     } catch {
@@ -177,6 +190,8 @@ export function startOpenfortivpn(
     onExit(code);
   });
   proc.on("error", (err) => {
+    const cur = running.get(name);
+    if (cur?.proc !== proc) return;
     onLog({ profileName: name, line: `spawn error: ${err.message}`, stream: "stderr" });
     onExit(null);
   });

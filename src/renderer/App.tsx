@@ -235,11 +235,17 @@ export default function App() {
   const [loginPass, setLoginPass] = useState("");
   const [loginOtp, setLoginOtp] = useState("");
   const [loginChallengeExplicitOtp, setLoginChallengeExplicitOtp] = useState(false);
-  const [showLoginPass, setShowLoginPass] = useState(false);
-  const [showLoginOtp, setShowLoginOtp] = useState(false);
+  /** True when openfortivpn is blocked on stdin waiting for 2FA (same as terminal after the prompt). */
+  const [loginOtpViaStdin, setLoginOtpViaStdin] = useState(false);
   const lastOtpChallengeLogKey = useRef("");
   const fortigateLastConnectHadOtp = useRef<Record<string, boolean>>({});
+  /** After the user dismisses the Fortigate OTP dialog, ignore older log lines so the effect does not reopen from stale "Could not authenticate" entries (different `t` → different key). */
+  const fortiOtpChallengeDismissedAt = useRef<Record<string, number>>({});
   const connectProfileRequest = useRef<(name: string) => void>(() => {});
+  const profilesRef = useRef<VpnProfile[]>([]);
+  const loginOpenRef = useRef(false);
+  const loginTargetRef = useRef<string | null>(null);
+  const loginOtpViaStdinRef = useRef(false);
 
   const [barrOtpOpen, setBarrOtpOpen] = useState(false);
   const [barrOtpTarget, setBarrOtpTarget] = useState<string | null>(null);
@@ -254,13 +260,15 @@ export default function App() {
   const [wizardAesKey, setWizardAesKey] = useState("");
   const [wizardAesIv, setWizardAesIv] = useState("");
   const [wizardUseStore, setWizardUseStore] = useState(false);
+  /** Native `alert()` while a MUI `Dialog` is open breaks focus/pointer handling in Electron; use an in-app dialog for import results. */
+  const [importResultText, setImportResultText] = useState<string | null>(null);
   const settingsPromptsDone = useRef(false);
 
   const refresh = useCallback(async () => {
     setBootError(null);
     try {
       if (typeof window.fvpn === "undefined") {
-        throw new Error("API do processo principal não disponível.");
+        throw new Error("Main process API is not available.");
       }
       const [p, g, s, o] = await Promise.all([
         window.fvpn.listProfiles(),
@@ -315,6 +323,33 @@ export default function App() {
   useEffect(() => window.fvpn.onGatewayCertPrompt((ev) => setGwCertDlg(ev)), []);
 
   useEffect(() => {
+    profilesRef.current = profiles;
+  }, [profiles]);
+
+  useEffect(() => {
+    loginOpenRef.current = loginOpen;
+    loginTargetRef.current = loginTarget;
+    loginOtpViaStdinRef.current = loginOtpViaStdin;
+  }, [loginOpen, loginTarget, loginOtpViaStdin]);
+
+  useEffect(() => {
+    return window.fvpn.onFortigateStdinOtpPrompt((ev) => {
+      const name = ev.name;
+      if (loginOpenRef.current && loginTargetRef.current === name && loginOtpViaStdinRef.current) return;
+      const profile = profilesRef.current.find((x) => x.name === name);
+      if (!profile || profile.device_type !== "fortigate" || profile.always_ask_otp) return;
+      setLoginOtpViaStdin(true);
+      setLoginChallengeExplicitOtp(true);
+      setLoginKind("challenge");
+      setLoginTarget(name);
+      setLoginUser(profile.username);
+      setLoginPass(profile.password);
+      setLoginOtp("");
+      setLoginOpen(true);
+    });
+  }, []);
+
+  useEffect(() => {
     const unsubLog = window.fvpn.onVpnLog((ev) => {
       setLogs((prev) => [...prev, { t: Date.now(), name: ev.name, line: ev.line, stream: ev.stream }].slice(-500));
     });
@@ -342,19 +377,20 @@ export default function App() {
       const maybeAuth = authFailMaybeOtp(e.line);
       if (!explicit && !maybeAuth) continue;
       if (maybeAuth && fortigateLastConnectHadOtp.current[e.name]) continue;
+      const dismissed = fortiOtpChallengeDismissedAt.current[e.name];
+      if (dismissed !== undefined && e.t <= dismissed) continue;
       const key = `${e.t}|${e.name}|${e.line}`;
       if (key === lastOtpChallengeLogKey.current) continue;
       const profile = profiles.find((x) => x.name === e.name);
       if (!profile || profile.device_type !== "fortigate" || profile.always_ask_otp) continue;
       lastOtpChallengeLogKey.current = key;
+      setLoginOtpViaStdin(false);
       setLoginChallengeExplicitOtp(explicit);
       setLoginKind("challenge");
       setLoginTarget(e.name);
       setLoginUser(profile.username);
       setLoginPass(profile.password);
       setLoginOtp("");
-      setShowLoginPass(false);
-      setShowLoginOtp(false);
       setLoginOpen(true);
       return;
     }
@@ -436,19 +472,21 @@ export default function App() {
     }
     if (p.device_type === "fortigate" && p.always_ask_otp) {
       lastOtpChallengeLogKey.current = "";
+      delete fortiOtpChallengeDismissedAt.current[name];
+      setLoginOtpViaStdin(false);
       setLoginKind("always");
       setLoginTarget(name);
       setLoginUser(p.username);
       setLoginPass(p.password);
       setLoginOtp("");
       setLoginChallengeExplicitOtp(false);
-      setShowLoginPass(false);
-      setShowLoginOtp(false);
       setLoginOpen(true);
       return;
     }
     lastOtpChallengeLogKey.current = "";
     fortigateLastConnectHadOtp.current[name] = false;
+    delete fortiOtpChallengeDismissedAt.current[name];
+    setLoginOtpViaStdin(false);
     try {
       await window.fvpn.startVpn(name);
     } catch (e) {
@@ -655,8 +693,22 @@ export default function App() {
 
   const submitLogin = async () => {
     if (!loginTarget || !loginKind) return;
+    if (loginKind === "challenge" && loginOtpViaStdin) {
+      if (!loginOtp.trim()) {
+        alert("Enter the one-time password.");
+        return;
+      }
+      const ok = await window.fvpn.submitFortigateStdinOtp(loginTarget, loginOtp.trim());
+      if (!ok) alert("Could not send the token (no active openfortivpn for this profile).");
+      setLoginOpen(false);
+      setLoginKind(null);
+      setLoginTarget(null);
+      setLoginOtpViaStdin(false);
+      setLoginOtp("");
+      return;
+    }
     if (!loginUser.trim()) {
-      alert("Enter the username.");
+      alert("This VPN profile has no username. Edit the profile and set credentials.");
       return;
     }
     if (loginKind === "always" && !loginOtp.trim()) {
@@ -677,13 +729,20 @@ export default function App() {
     setLoginOpen(false);
     setLoginKind(null);
     setLoginTarget(null);
+    setLoginOtpViaStdin(false);
   };
 
   const cancelLogin = async () => {
     const target = loginTarget;
+    const now = Date.now();
+    if (target) {
+      fortiOtpChallengeDismissedAt.current[target] = now;
+      fortigateLastConnectHadOtp.current[target] = false;
+    }
     setLoginOpen(false);
     setLoginKind(null);
     setLoginTarget(null);
+    setLoginOtpViaStdin(false);
     setLoginOtp("");
     if (!target) return;
     try {
@@ -735,9 +794,15 @@ export default function App() {
   };
 
   const runImport = async () => {
-    const r = await window.fvpn.importOpenfortigui();
-    alert(`Imported ${r.profilesCopied} profiles, ${r.groupsCopied} groups.${r.errors.length ? `\n\nErrors:\n${r.errors.join("\n")}` : ""}`);
-    await refresh();
+    try {
+      const r = await window.fvpn.importOpenfortigui();
+      await refresh();
+      setImportResultText(
+        `Imported ${r.profilesCopied} profiles, ${r.groupsCopied} groups.${r.errors.length ? `\n\nErrors:\n${r.errors.join("\n")}` : ""}`
+      );
+    } catch (e) {
+      setImportResultText(`Import failed:\n\n${e instanceof Error ? e.message : String(e)}`);
+    }
   };
 
   const mergeOfgMain = async () => {
@@ -1472,43 +1537,18 @@ export default function App() {
       </Dialog>
 
       <Dialog open={loginOpen} onClose={() => void cancelLogin()} maxWidth="xs" fullWidth>
-        <DialogTitle>VPN Login</DialogTitle>
+        <DialogTitle>One-time password</DialogTitle>
         <DialogContent>
-          <Stack spacing={2} pt={1}>
-            <TextField autoFocus label="Username" value={loginUser} onChange={(e) => setLoginUser(e.target.value)} onKeyDown={(e) => e.key === "Enter" && void submitLogin()} />
-            <TextField
-              label="Password"
-              type={showLoginPass ? "text" : "password"}
-              value={loginPass}
-              onChange={(e) => setLoginPass(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && void submitLogin()}
-              InputProps={{
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton size="small" onClick={() => setShowLoginPass((v) => !v)}>
-                      {showLoginPass ? <VisibilityOff /> : <Visibility />}
-                    </IconButton>
-                  </InputAdornment>
-                ),
-              }}
-            />
-            <TextField
-              label="OTP"
-              type={showLoginOtp ? "text" : "password"}
-              value={loginOtp}
-              onChange={(e) => setLoginOtp(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && void submitLogin()}
-              InputProps={{
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton size="small" onClick={() => setShowLoginOtp((v) => !v)}>
-                      {showLoginOtp ? <VisibilityOff /> : <Visibility />}
-                    </IconButton>
-                  </InputAdornment>
-                ),
-              }}
-            />
-          </Stack>
+          <TextField
+            autoFocus
+            fullWidth
+            margin="dense"
+            label="OTP"
+            type="password"
+            value={loginOtp}
+            onChange={(e) => setLoginOtp(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && void submitLogin()}
+          />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => void cancelLogin()}>Cancel</Button>
@@ -1519,13 +1559,13 @@ export default function App() {
       </Dialog>
 
       <Dialog open={barrOtpOpen} onClose={() => void cancelBarrOtp()} maxWidth="xs" fullWidth>
-        <DialogTitle>OTP-Token required</DialogTitle>
+        <DialogTitle>One-time password</DialogTitle>
         <DialogContent>
           <TextField
             autoFocus
             fullWidth
             margin="dense"
-            label="Please provide your OTP-Token:"
+            label="OTP"
             type={showBarrOtp ? "text" : "password"}
             value={barrOtpVal}
             onChange={(e) => setBarrOtpVal(e.target.value)}
@@ -1565,9 +1605,17 @@ export default function App() {
               if (!d) return;
               void (async () => {
                 try {
-                  await window.fvpn.trustGatewayDigest(d.profileName, d.digest);
+                  const saved = await window.fvpn.trustGatewayDigest(d.profileName, d.digest);
+                  if (!saved) {
+                    alert("Could not add this digest to the whitelist (invalid digest or already trusted).");
+                    setGwCertDlg(null);
+                    await refresh();
+                    return;
+                  }
+                  await window.fvpn.stopVpn(d.profileName);
                   setGwCertDlg(null);
                   await refresh();
+                  await startVpnFlow(d.profileName);
                 } catch (e) {
                   alert((e as Error).message);
                 }
@@ -1663,6 +1711,20 @@ export default function App() {
               Finish
             </Button>
           )}
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={importResultText !== null} onClose={() => setImportResultText(null)} maxWidth="sm" fullWidth>
+        <DialogTitle>Import from OpenFortiGUI</DialogTitle>
+        <DialogContent dividers>
+          <Typography variant="body2" component="pre" sx={{ whiteSpace: "pre-wrap", fontFamily: "inherit", m: 0 }}>
+            {importResultText}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="contained" onClick={() => setImportResultText(null)}>
+            OK
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>

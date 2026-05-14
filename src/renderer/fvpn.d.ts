@@ -17,6 +17,7 @@ export interface FvpnApi {
   startVpn: (name: string, arg?: string | VpnStartCredentials) => Promise<void>;
   stopVpn: (name: string) => Promise<void>;
   vpnStatus: (name: string) => Promise<string>;
+  submitFortigateStdinOtp: (profileName: string, otp: string) => Promise<boolean>;
   trustGatewayDigest: (profileName: string, digest: string) => Promise<false | "profile" | "cache">;
   chooseDirectory: (initialPath?: string) => Promise<string | null>;
   openLogsDir: () => Promise<string>;
@@ -29,6 +30,7 @@ export interface FvpnApi {
   onVpnStatus: (cb: (ev: { name: string; state: string }) => void) => () => void;
   onVpnStats: (cb: (ev: { name: string; stats: VpnTrafficStats }) => void) => () => void;
   onGatewayCertPrompt: (cb: (ev: { profileName: string; digest: string; body: string }) => void) => () => void;
+  onFortigateStdinOtpPrompt: (cb: (ev: { name: string }) => void) => () => void;
 }
 
 declare global {
