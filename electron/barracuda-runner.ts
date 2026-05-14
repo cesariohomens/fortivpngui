@@ -40,6 +40,31 @@ function removeBarracudaTempDir(dir: string): void {
   }
 }
 
+/** Remove `fortivpngui-barracuda-*` dirs under TMPDIR that are not tied to an active barracudavpn session. */
+export function sweepOrphanBarracudaTempDirs(): void {
+  const active = new Set<string>();
+  for (const b of barracudaProcesses.values()) {
+    if (b.tempDir) active.add(path.resolve(b.tempDir));
+  }
+  let entries: string[];
+  try {
+    entries = fs.readdirSync(os.tmpdir());
+  } catch {
+    return;
+  }
+  const prefix = "fortivpngui-barracuda-";
+  for (const ent of entries) {
+    if (!ent.startsWith(prefix)) continue;
+    const full = path.resolve(path.join(os.tmpdir(), ent));
+    if (active.has(full)) continue;
+    try {
+      if (fs.statSync(full).isDirectory()) fs.rmSync(full, { recursive: true, force: true });
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
 /** Remove any `fortivpngui-barracuda-*` dirs left under the system temp directory. */
 export function sweepBarracudaTempDirs(): void {
   let entries: string[];

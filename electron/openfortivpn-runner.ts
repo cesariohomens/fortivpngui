@@ -80,6 +80,41 @@ function openfortivpnConfigDir(): string {
   return path.join(os.tmpdir(), FORTIVPNGUI_TMP_SUBDIR);
 }
 
+/** Delete `run-*.conf` in TMPDIR/fortivpngui that are not used by a running openfortivpn (safe when the main window is hidden but VPNs stay up). */
+export function sweepOrphanOpenfortivpnConfigs(): void {
+  const dir = openfortivpnConfigDir();
+  if (!fs.existsSync(dir)) return;
+  const active = new Set<string>();
+  for (const r of running.values()) {
+    try {
+      active.add(path.resolve(r.configPath));
+    } catch {
+      /* ignore */
+    }
+  }
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  for (const ent of entries) {
+    if (!ent.isFile() || !/^run-.+\.conf$/.test(ent.name)) continue;
+    const full = path.resolve(path.join(dir, ent.name));
+    if (active.has(full)) continue;
+    try {
+      fs.unlinkSync(full);
+    } catch {
+      /* ignore */
+    }
+  }
+  try {
+    fs.rmdirSync(dir);
+  } catch {
+    /* not empty or active files remain */
+  }
+}
+
 /** Remove leftover `run-*.conf` (crash, failed spawn, etc.). */
 export function sweepOpenfortivpnConfigDir(): void {
   const dir = openfortivpnConfigDir();

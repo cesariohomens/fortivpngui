@@ -448,3 +448,9 @@ export function cleanupTempFilesOnQuit(): void {
   ofv.stopEveryOpenfortivpnAndSweepTemp();
   barr.stopEveryBarracudaAndSweepTemp();
 }
+
+/** Remove temp files not referenced by running VPN processes (e.g. after hiding the main window). */
+export function sweepDetachedVpnTempFiles(): void {
+  ofv.sweepOrphanOpenfortivpnConfigs();
+  barr.sweepOrphanBarracudaTempDirs();
+}

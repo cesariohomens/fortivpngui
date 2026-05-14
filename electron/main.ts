@@ -221,6 +221,7 @@ function createWindow() {
     if (isQuitting) return;
     event.preventDefault();
     mainWindow?.hide();
+    vpn.sweepDetachedVpnTempFiles();
   });
 }
 
