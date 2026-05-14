@@ -990,7 +990,7 @@ export default function App() {
                 disabled={view === "vpn" && !selectedProfile}
                 onClick={() => {
                   if (view === "vpn" && selectedProfile) void window.fvpn.openVpnLog(selectedProfile.name);
-                  else void window.fvpn.openLogsDir();
+                  else setView("logs");
                 }}
               >
                 Logs

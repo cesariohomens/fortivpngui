@@ -13,6 +13,7 @@ import type { VpnStartCredentials } from "./types.js";
 
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
+const logWindows = new Map<string, BrowserWindow>();
 let autostartVpnsDone = false;
 let isQuitting = false;
 
@@ -34,6 +35,86 @@ function createAppNativeIcon(): Electron.NativeImage | undefined {
   if (!p) return undefined;
   const img = nativeImage.createFromPath(p);
   return img.isEmpty() ? undefined : img;
+}
+
+function safeProfileSegment(name: string): string {
+  return name.replace(/[^\w.\-]+/g, "_").slice(0, 120) || "unknown";
+}
+
+function vpnLogFilePath(profileName: string): string {
+  const s = readMainSettings();
+  return path.join(expandHome(s.logs), "vpn", `${safeProfileSegment(profileName)}.log`);
+}
+
+function escapeHtml(raw: string): string {
+  return raw
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function buildPlainTextLogHtml(profileName: string, filePath: string): string {
+  const content = fs.existsSync(filePath)
+    ? fs.readFileSync(filePath, "utf8")
+    : `No log file exists yet for profile "${profileName}".\n\nExpected path:\n${filePath}\n`;
+  const title = `VPN Log - ${profileName}`;
+  return `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'">
+  <title>${escapeHtml(title)}</title>
+  <style>
+    html, body { margin: 0; min-height: 100%; background: #131313; color: #e5e2e1; }
+    body { font-family: "JetBrains Mono", "Cascadia Code", "SFMono-Regular", Consolas, monospace; font-size: 12px; line-height: 1.55; }
+    header { position: sticky; top: 0; padding: 10px 14px; background: #001c3a; border-bottom: 1px solid #414753; font-family: Inter, "Segoe UI", sans-serif; }
+    header strong { display: block; color: #a7c8ff; font-size: 13px; }
+    header span { display: block; margin-top: 2px; color: #c1c6d5; font-size: 11px; overflow-wrap: anywhere; }
+    pre { margin: 0; padding: 14px; white-space: pre-wrap; word-break: break-word; }
+  </style>
+</head>
+<body>
+  <header><strong>${escapeHtml(title)}</strong><span>${escapeHtml(filePath)}</span></header>
+  <pre>${escapeHtml(content)}</pre>
+</body>
+</html>`;
+}
+
+function loadPlainTextLog(win: BrowserWindow, profileName: string, filePath: string): void {
+  const html = buildPlainTextLogHtml(profileName, filePath);
+  void win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+}
+
+function openPlainTextLogWindow(profileName: string): string {
+  const filePath = vpnLogFilePath(profileName);
+  const title = `VPN Log - ${profileName}`;
+  const existing = logWindows.get(filePath);
+  if (existing && !existing.isDestroyed()) {
+    loadPlainTextLog(existing, profileName, filePath);
+    existing.show();
+    existing.focus();
+    return filePath;
+  }
+
+  const win = new BrowserWindow({
+    width: 920,
+    height: 680,
+    title,
+    autoHideMenuBar: true,
+    icon: createAppNativeIcon(),
+    parent: mainWindow ?? undefined,
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: false,
+    },
+  });
+  logWindows.set(filePath, win);
+  win.on("closed", () => logWindows.delete(filePath));
+  loadPlainTextLog(win, profileName, filePath);
+  return filePath;
 }
 
 async function runAutostartVpns(): Promise<void> {
@@ -294,9 +375,7 @@ if (!gotLock) {
       return shell.openPath(expandHome(s.logs));
     });
     ipcMain.handle("app:openVpnLog", (_e, name: string) => {
-      const s = readMainSettings();
-      const safe = name.replace(/[^\w.\-]+/g, "_").slice(0, 120) || "unknown";
-      return shell.openPath(path.join(expandHome(s.logs), "vpn", `${safe}.log`));
+      return openPlainTextLogWindow(name);
     });
     ipcMain.handle("profiles:list", () => profileService.listProfiles());
     ipcMain.handle("profiles:save", async (_e, p) => {
