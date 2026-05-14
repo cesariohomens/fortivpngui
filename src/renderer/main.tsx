@@ -111,8 +111,8 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           borderRadius: 8,
-          minHeight: 34,
-          paddingInline: 14,
+          minHeight: 32,
+          paddingInline: 12,
         },
         containedPrimary: {
           backgroundColor: colors.primaryContainer,
@@ -137,6 +137,20 @@ const theme = createTheme({
             color: colors.onSurface,
             backgroundColor: alpha(colors.primary, 0.1),
           },
+        },
+        sizeSmall: {
+          width: 30,
+          height: 30,
+          padding: 4,
+        },
+      },
+    },
+    MuiListItemButton: {
+      styleOverrides: {
+        root: {
+          minHeight: 34,
+          paddingTop: 4,
+          paddingBottom: 4,
         },
       },
     },
@@ -169,7 +183,7 @@ const theme = createTheme({
     },
     MuiSelect: {
       styleOverrides: {
-        select: { fontSize: 13 },
+        select: { fontSize: 13, minHeight: "18px", paddingTop: 7, paddingBottom: 7 },
       },
     },
     MuiMenu: {
@@ -180,11 +194,22 @@ const theme = createTheme({
         },
       },
     },
+    MuiMenuItem: {
+      styleOverrides: {
+        root: {
+          minHeight: 30,
+          paddingTop: 5,
+          paddingBottom: 5,
+          fontSize: 13,
+        },
+      },
+    },
     MuiTableCell: {
       styleOverrides: {
         root: {
           borderColor: alpha(colors.outlineVariant, 0.8),
           fontSize: 13,
+          padding: "6px 10px",
         },
         head: {
           color: colors.onSurfaceVariant,
@@ -193,6 +218,7 @@ const theme = createTheme({
           textTransform: "uppercase",
           letterSpacing: 0,
           backgroundColor: colors.surfaceLow,
+          padding: "7px 10px",
         },
       },
     },

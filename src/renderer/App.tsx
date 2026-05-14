@@ -43,8 +43,6 @@ import FolderOpenIcon from "@mui/icons-material/FolderOpen";
 import GroupWorkIcon from "@mui/icons-material/GroupWork";
 import InfoIcon from "@mui/icons-material/Info";
 import InputIcon from "@mui/icons-material/Input";
-import LinkIcon from "@mui/icons-material/Link";
-import LinkOffIcon from "@mui/icons-material/LinkOff";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import SearchIcon from "@mui/icons-material/Search";
@@ -407,6 +405,14 @@ export default function App() {
     return "disconnected";
   };
 
+  const selectedConnectionState =
+    view === "vpn" && selectedProfile
+      ? status[selectedProfile.name] || "disconnected"
+      : view === "groups" && selectedGroup
+        ? groupStatus(selectedGroup)
+        : "disconnected";
+  const selectedConnectionActive = selectedConnectionState === "connected" || selectedConnectionState === "connecting";
+
   const logGroupLine = (line: string) => {
     setLogs((prev) => [...prev, { t: Date.now(), name: "(group)", line }].slice(-500));
     console.warn(line);
@@ -722,13 +728,15 @@ export default function App() {
     setWizardOpen(false);
   };
 
-  const toolbarConnect = () => {
-    if (view === "vpn" && selectedProfile) void startVpnFlow(selectedProfile.name);
-    if (view === "groups" && selectedGroup) void connectGroup(selectedGroup);
-  };
-  const toolbarDisconnect = () => {
-    if (view === "vpn" && selectedProfile) void stopVpn(selectedProfile.name);
-    if (view === "groups" && selectedGroup) void disconnectGroup(selectedGroup);
+  const toolbarConnectionToggle = () => {
+    if (view === "vpn" && selectedProfile) {
+      if (selectedConnectionActive) void stopVpn(selectedProfile.name);
+      else void startVpnFlow(selectedProfile.name);
+    }
+    if (view === "groups" && selectedGroup) {
+      if (selectedConnectionActive) void disconnectGroup(selectedGroup);
+      else void connectGroup(selectedGroup);
+    }
   };
   const toolbarEdit = () => {
     if (view === "vpn" && selectedProfile) editProfile(selectedProfile);
@@ -825,8 +833,13 @@ export default function App() {
                   </TableCell>
                   <TableCell align="right">
                     <Tooltip title={active ? "Disconnect" : "Connect"}>
-                      <IconButton size="small" disabled={p.device_type === "fortigate" && !ofvPath && !active} onClick={() => void (active ? stopVpn(p.name) : startVpnFlow(p.name))}>
-                        {active ? <LinkOffIcon fontSize="small" /> : <LinkIcon fontSize="small" />}
+                      <IconButton
+                        size="small"
+                        color={active ? "error" : "primary"}
+                        disabled={p.device_type === "fortigate" && !ofvPath && !active}
+                        onClick={() => void (active ? stopVpn(p.name) : startVpnFlow(p.name))}
+                      >
+                        {active ? <StopIcon fontSize="small" /> : <PlayArrowIcon fontSize="small" />}
                       </IconButton>
                     </Tooltip>
                     <Tooltip title="Edit">
@@ -957,11 +970,14 @@ export default function App() {
         <Box p={3}>
           {(view === "vpn" || view === "groups") && (
             <Stack direction="row" flexWrap="wrap" gap={1} mb={2} p={1} sx={sectionSx()}>
-              <Button startIcon={<PlayArrowIcon />} onClick={toolbarConnect} disabled={view === "vpn" ? !selectedProfile : !selectedGroup}>
-                Connect
-              </Button>
-              <Button startIcon={<StopIcon />} onClick={toolbarDisconnect} disabled={view === "vpn" ? !selectedProfile : !selectedGroup}>
-                Disconnect
+              <Button
+                variant={selectedConnectionActive ? "contained" : "outlined"}
+                color={selectedConnectionActive ? "error" : "primary"}
+                startIcon={selectedConnectionActive ? <StopIcon /> : <PlayArrowIcon />}
+                onClick={toolbarConnectionToggle}
+                disabled={view === "vpn" ? !selectedProfile : !selectedGroup}
+              >
+                {selectedConnectionActive ? "Disconnect" : "Connect"}
               </Button>
               <Divider orientation="vertical" flexItem />
               <Button startIcon={<AddIcon />} onClick={(e) => setAddMenuAnchor(e.currentTarget)}>
@@ -1038,11 +1054,8 @@ export default function App() {
                           <TableCell sx={{ fontWeight: 700 }}>{g.name}</TableCell>
                           <TableCell>{uniq([...g.localMembers, ...g.globalMembers]).join(", ")}</TableCell>
                           <TableCell align="right">
-                            <IconButton size="small" onClick={() => void connectGroup(g)}>
-                              <LinkIcon fontSize="small" />
-                            </IconButton>
-                            <IconButton size="small" onClick={() => void disconnectGroup(g)}>
-                              <LinkOffIcon fontSize="small" />
+                            <IconButton size="small" color={st === "connected" || st === "connecting" ? "error" : "primary"} onClick={() => void (st === "connected" || st === "connecting" ? disconnectGroup(g) : connectGroup(g))}>
+                              {st === "connected" || st === "connecting" ? <StopIcon fontSize="small" /> : <PlayArrowIcon fontSize="small" />}
                             </IconButton>
                             <IconButton size="small" onClick={() => void duplicateGroup(g.name)}>
                               <ContentCopyIcon fontSize="small" />
