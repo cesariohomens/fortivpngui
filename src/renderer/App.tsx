@@ -30,6 +30,7 @@ import {
   TableRow,
   Tabs,
   TextField,
+  Link,
   Tooltip,
   Typography,
 } from "@mui/material";
@@ -52,7 +53,7 @@ import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
 import VpnKeyIcon from "@mui/icons-material/VpnKey";
 import type { MainSettings, VpnGroup, VpnProfile, VpnStartCredentials, VpnTrafficStats } from "../../shared/types";
-import { APP_VERSION, CHANGELOG_REV } from "../../shared/constants";
+import { APP_AUTHOR, APP_LICENSE, APP_NAME, APP_REPOSITORY, APP_VERSION, CHANGELOG_REV } from "../../shared/constants";
 import brandingMark from "../../build/icons/512x512.png";
 import { scheduleAfterOverlayClose } from "./scheduleAfterOverlayClose";
 
@@ -1594,18 +1595,165 @@ export default function App() {
         </DialogActions>
       </Dialog>
 
-      <Dialog open={aboutOpen} onClose={() => setAboutOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>About FortiVPN GUI</DialogTitle>
-        <DialogContent dividers>
-          <Typography fontWeight={800}>FortiVPN GUI</Typography>
-          <Typography variant="body2" color={colors.muted}>
-            Electron desktop GUI compatible with OpenFortiGUI profile flows.
-          </Typography>
-          <Divider sx={{ my: 2 }} />
-          <Typography variant="body2">Uses openfortivpn, barracudavpn, Electron, React and Material UI.</Typography>
+      <Dialog
+        open={aboutOpen}
+        onClose={() => setAboutOpen(false)}
+        maxWidth="xs"
+        fullWidth
+        slotProps={{
+          paper: {
+            sx: {
+              bgcolor: colors.surface,
+              border: `1px solid ${colors.outline}`,
+              borderRadius: 3,
+              backgroundImage: "none",
+            },
+          },
+        }}
+      >
+        <DialogTitle
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            py: 1.5,
+            px: 2,
+            borderBottom: `1px solid ${colors.outline}`,
+            color: colors.text,
+            fontWeight: 700,
+            fontSize: "1rem",
+          }}
+        >
+          About
+          <Box flex={1} />
+          <IconButton size="small" onClick={() => setAboutOpen(false)} aria-label="Close" sx={{ color: colors.muted }}>
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent sx={{ px: 3, pt: 3, pb: 2 }}>
+          <Stack alignItems="center" spacing={2}>
+            <Box
+              component="img"
+              src={brandingMark}
+              alt=""
+              width={72}
+              height={72}
+              sx={{ objectFit: "contain", borderRadius: 2.5, border: `1px solid ${colors.outline}`, bgcolor: colors.nav, p: 1 }}
+            />
+            <Typography variant="h5" fontWeight={800} color={colors.text} textAlign="center">
+              {APP_NAME}
+            </Typography>
+            <Box
+              component="span"
+              sx={{
+                display: "inline-block",
+                px: 1.5,
+                py: 0.5,
+                borderRadius: 999,
+                bgcolor: colors.surfaceLow,
+                border: `1px solid ${colors.outline}`,
+                fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+                fontSize: "0.8rem",
+                color: colors.primary,
+              }}
+            >
+              Version {APP_VERSION}
+            </Box>
+            <Typography variant="body2" color={colors.muted} textAlign="center" lineHeight={1.6} maxWidth={340}>
+              A modern, open-source desktop VPN client for FortiGate and Barracuda, with OpenFortiGUI-compatible profiles and groups.
+            </Typography>
+            <Box
+              sx={{
+                width: "100%",
+                maxWidth: 400,
+                border: `1px solid ${colors.outline}`,
+                borderRadius: 2,
+                overflow: "hidden",
+                bgcolor: colors.surfaceLow,
+                alignSelf: "stretch",
+              }}
+            >
+              {[
+                ["Credits", APP_AUTHOR || "—"],
+                [
+                  "Git",
+                  <Link
+                    key="git"
+                    href={APP_REPOSITORY}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    underline="hover"
+                    sx={{
+                      color: colors.primary,
+                      fontSize: "0.875rem",
+                      fontWeight: 600,
+                      maxWidth: 220,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {APP_REPOSITORY.replace(/^https:\/\//, "")}
+                  </Link>,
+                ],
+                ["License", APP_LICENSE],
+              ].map(([label, value], i) => (
+                <Box
+                  key={String(label)}
+                  sx={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: 2,
+                    px: 2,
+                    py: 1.25,
+                    borderTop: i > 0 ? `1px solid ${colors.outline}` : "none",
+                  }}
+                >
+                  <Typography variant="body2" color={colors.muted} fontWeight={500}>
+                    {label}
+                  </Typography>
+                  {typeof value === "string" ? (
+                    <Typography variant="body2" color={colors.text} fontWeight={600} textAlign="right">
+                      {value}
+                    </Typography>
+                  ) : (
+                    value
+                  )}
+                </Box>
+              ))}
+            </Box>
+            <Stack direction="row" flexWrap="wrap" justifyContent="center" gap={1} pt={0.5}>
+              {["Electron", "React", "Material UI"].map((tag) => (
+                <Chip
+                  key={tag}
+                  label={tag}
+                  size="small"
+                  sx={{
+                    bgcolor: colors.surfaceHigh,
+                    border: `1px solid ${colors.outline}`,
+                    color: colors.muted,
+                    fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+                    fontSize: "0.7rem",
+                    height: 26,
+                  }}
+                />
+              ))}
+            </Stack>
+          </Stack>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setAboutOpen(false)}>OK</Button>
+        <DialogActions sx={{ justifyContent: "center", px: 3, pb: 2.5, pt: 0 }}>
+          <Button
+            variant="outlined"
+            onClick={() => setAboutOpen(false)}
+            sx={{
+              minWidth: 120,
+              borderColor: colors.outline,
+              color: colors.text,
+              "&:hover": { borderColor: colors.muted, bgcolor: colors.surfaceLow },
+            }}
+          >
+            Close
+          </Button>
         </DialogActions>
       </Dialog>
 

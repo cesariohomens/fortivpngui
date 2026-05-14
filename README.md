@@ -60,6 +60,8 @@ youruser ALL=(root) NOPASSWD: /usr/bin/openfortivpn *
 
 The trailing ` * ` is required: this app runs `sudo /usr/bin/openfortivpn -c /tmp/...` (and may add `--otp`, `-v`, etc.). A rule with only `/usr/bin/openfortivpn` and no ` * ` usually does **not** match that command line, so `sudo` can still prompt for a password or reject the invocation while the tunnel partially starts—leading to confusing auth or OTP behaviour.
 
+`npm install` **postinstall** only runs `electron-builder install-app-deps` (rebuilds **keytar**); it does **not** change sudoers. The **`.deb`** runs `resources/deb/postinst.sh`, which installs the drop-in **`/etc/sudoers.d/fortivpngui`** (included from the main sudoers via `#includedir`). It does not append to `/etc/sudoers`; use `sudo visudo -f /etc/sudoers.d/fortivpngui` to inspect or edit that file.
+
 A template is shipped as `resources/sudo/fortivpngui.sudoers` (review before installing).
 
 FortiGate **email/SMS OTP** often needs the gateway to offer token mode instead of FortiToken Mobile push. In the profile editor, try **“no FTM push”** (`no-ftm-push`) and, if the token arrives late, increase **OTP delay** (`otp-delay`, seconds) to match your MFA flow.

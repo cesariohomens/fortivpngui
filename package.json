@@ -46,6 +46,8 @@
   "build": {
     "appId": "com.cesariogarcia.fortivpngui",
     "productName": "fortivpngui",
+    "asar": true,
+    "asarUnpack": ["resources/sudo/**"],
     "icon": "build/icons",
     "directories": {
       "output": "release"

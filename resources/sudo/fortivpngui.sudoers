@@ -1,3 +1,4 @@
-# Installed to /etc/sudoers.d/ by the .deb postinst. Trailing * matches -c, --otp, -v, etc.
+# Installed to /etc/sudoers.d/fortivpngui by the .deb postinst (not appended to /etc/sudoers).
+# Trailing * matches -c, --otp, -v, etc.
 # Any user may run openfortivpn as root without a password (same effect as a shared workstation rule).
 ALL ALL=(root) NOPASSWD: /usr/bin/openfortivpn *
