@@ -168,6 +168,38 @@ async function runAutostartVpns(): Promise<void> {
   }
 }
 
+function isHttpHttpsOrMailto(url: string): boolean {
+  try {
+    const p = new URL(url).protocol;
+    return p === "http:" || p === "https:" || p === "mailto:";
+  } catch {
+    return false;
+  }
+}
+
+/** True when the URL is the packaged app (file) or the Vite dev origin. */
+function isInAppNavigationUrl(url: string, devServerUrl: string | undefined): boolean {
+  try {
+    if (devServerUrl) {
+      const base = new URL(devServerUrl.endsWith("/") ? devServerUrl : `${devServerUrl}/`);
+      return new URL(url).origin === base.origin;
+    }
+    return new URL(url).protocol === "file:";
+  } catch {
+    return false;
+  }
+}
+
+function isSameDocumentExceptHash(fromUrl: string, toUrl: string): boolean {
+  try {
+    const a = new URL(fromUrl);
+    const b = new URL(toUrl);
+    return a.origin === b.origin && a.pathname === b.pathname && a.search === b.search;
+  } catch {
+    return false;
+  }
+}
+
 function createWindow() {
   const s = readMainSettings();
   const showWindow = !s.start_minimized || !s.setupwizard || s.changelogrev_read < CHANGELOG_REV;
@@ -198,6 +230,25 @@ function createWindow() {
     const fileUrl = pathToFileURL(indexHtml).href;
     void mainWindow.loadURL(fileUrl);
   }
+
+  const wc = mainWindow.webContents;
+  wc.on("will-navigate", (event, url) => {
+    if (isSameDocumentExceptHash(wc.getURL(), url)) return;
+    if (isHttpHttpsOrMailto(url) && !isInAppNavigationUrl(url, dev)) {
+      event.preventDefault();
+      void shell.openExternal(url);
+    }
+  });
+  wc.setWindowOpenHandler(({ url }) => {
+    if (isHttpHttpsOrMailto(url)) {
+      if (!isInAppNavigationUrl(url, dev)) {
+        void shell.openExternal(url);
+        return { action: "deny" };
+      }
+      return { action: "allow" };
+    }
+    return { action: "allow" };
+  });
 
   mainWindow.webContents.on("did-fail-load", (_e, code, desc, url) => {
     console.error("did-fail-load", { code, desc, url });

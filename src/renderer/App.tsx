@@ -1629,15 +1629,21 @@ export default function App() {
             <CloseIcon fontSize="small" />
           </IconButton>
         </DialogTitle>
-        <DialogContent sx={{ px: 3, pt: 3, pb: 2 }}>
-          <Stack alignItems="center" spacing={2}>
+        <DialogContent sx={{ px: 3, pt: 0, pb: 2 }}>
+          <Stack alignItems="center" spacing={2} sx={{ pt: 5 }}>
             <Box
               component="img"
               src={brandingMark}
               alt=""
               width={72}
               height={72}
-              sx={{ objectFit: "contain", borderRadius: 2.5, border: `1px solid ${colors.outline}`, bgcolor: colors.nav, p: 1 }}
+              sx={{
+                objectFit: "contain",
+                borderRadius: 2.5,
+                border: `1px solid ${colors.outline}`,
+                bgcolor: colors.nav,
+                p: 1,
+              }}
             />
             <Typography variant="h5" fontWeight={800} color={colors.text} textAlign="center">
               {APP_NAME}
@@ -1683,13 +1689,13 @@ export default function App() {
                     rel="noopener noreferrer"
                     underline="hover"
                     sx={{
+                      display: "block",
                       color: colors.primary,
                       fontSize: "0.875rem",
                       fontWeight: 600,
-                      maxWidth: 220,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
+                      textAlign: "right",
+                      overflowWrap: "anywhere",
+                      wordBreak: "break-word",
                     }}
                   >
                     {APP_REPOSITORY.replace(/^https:\/\//, "")}
@@ -1701,24 +1707,26 @@ export default function App() {
                   key={String(label)}
                   sx={{
                     display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
+                    flexDirection: "row",
+                    alignItems: typeof value === "string" ? "center" : "flex-start",
                     gap: 2,
                     px: 2,
                     py: 1.25,
                     borderTop: i > 0 ? `1px solid ${colors.outline}` : "none",
                   }}
                 >
-                  <Typography variant="body2" color={colors.muted} fontWeight={500}>
+                  <Typography variant="body2" color={colors.muted} fontWeight={500} sx={{ flexShrink: 0, width: 56 }}>
                     {label}
                   </Typography>
-                  {typeof value === "string" ? (
-                    <Typography variant="body2" color={colors.text} fontWeight={600} textAlign="right">
-                      {value}
-                    </Typography>
-                  ) : (
-                    value
-                  )}
+                  <Box sx={{ flex: 1, minWidth: 0, textAlign: "right" }}>
+                    {typeof value === "string" ? (
+                      <Typography variant="body2" color={colors.text} fontWeight={600} component="span" sx={{ display: "block" }}>
+                        {value}
+                      </Typography>
+                    ) : (
+                      value
+                    )}
+                  </Box>
                 </Box>
               ))}
             </Box>
