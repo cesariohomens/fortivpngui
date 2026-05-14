@@ -53,7 +53,8 @@
     "files": [
       "dist/**/*",
       "dist-electron/**/*",
-      "resources/**/*"
+      "resources/**/*",
+      "build/icons/512x512.png"
     ],
     "linux": {
       "target": ["deb"],

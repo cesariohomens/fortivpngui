@@ -47,7 +47,6 @@ import InputIcon from "@mui/icons-material/Input";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import SearchIcon from "@mui/icons-material/Search";
-import SecurityIcon from "@mui/icons-material/Security";
 import SettingsIcon from "@mui/icons-material/Settings";
 import StopIcon from "@mui/icons-material/Stop";
 import TuneIcon from "@mui/icons-material/Tune";
@@ -56,6 +55,7 @@ import VisibilityOff from "@mui/icons-material/VisibilityOff";
 import VpnKeyIcon from "@mui/icons-material/VpnKey";
 import type { MainSettings, VpnGroup, VpnProfile, VpnStartCredentials, VpnTrafficStats } from "../../shared/types";
 import { APP_VERSION, CHANGELOG_REV } from "../../shared/constants";
+import brandingMark from "../../build/icons/512x512.png";
 import { scheduleAfterOverlayClose } from "./scheduleAfterOverlayClose";
 
 type ViewId = "vpn" | "groups" | "settings" | "logs";
@@ -983,9 +983,14 @@ export default function App() {
         py={2}
       >
         <Box px={1.5} mb={2} display="flex" alignItems="center" gap={1}>
-          <Box width={32} height={32} borderRadius={1.5} bgcolor={colors.primaryContainer} display="flex" alignItems="center" justifyContent="center" flexShrink={0}>
-            <SecurityIcon fontSize="small" />
-          </Box>
+          <Box
+            component="img"
+            src={brandingMark}
+            alt="FortiVPN GUI"
+            width={36}
+            height={36}
+            sx={{ objectFit: "contain", flexShrink: 0, display: "block" }}
+          />
           <Box minWidth={0}>
             <Typography variant="body2" color={colors.primary} fontWeight={800} lineHeight={1.1} noWrap>
               FortiVPN GUI
