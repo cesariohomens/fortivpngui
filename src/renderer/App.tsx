@@ -35,7 +35,6 @@ import {
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import ArticleIcon from "@mui/icons-material/Article";
-import ClearAllIcon from "@mui/icons-material/ClearAll";
 import CloseIcon from "@mui/icons-material/Close";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -43,7 +42,6 @@ import EditIcon from "@mui/icons-material/Edit";
 import FolderOpenIcon from "@mui/icons-material/FolderOpen";
 import GroupWorkIcon from "@mui/icons-material/GroupWork";
 import InfoIcon from "@mui/icons-material/Info";
-import InputIcon from "@mui/icons-material/Input";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import SearchIcon from "@mui/icons-material/Search";
@@ -58,7 +56,7 @@ import { APP_VERSION, CHANGELOG_REV } from "../../shared/constants";
 import brandingMark from "../../build/icons/512x512.png";
 import { scheduleAfterOverlayClose } from "./scheduleAfterOverlayClose";
 
-type ViewId = "vpn" | "groups" | "settings" | "logs";
+type ViewId = "vpn" | "groups" | "settings";
 
 const NAME_RE = /^[a-zA-ZäöüÄÖÜ0-9 \-_]{3,}$/;
 const navWidth = 224;
@@ -313,7 +311,6 @@ export default function App() {
       if (ev.tab === 0) setView("vpn");
       if (ev.tab === 1) setView("groups");
       if (ev.tab === 2) setView("settings");
-      if (ev.tab === 3) setView("logs");
     });
   }, []);
 
@@ -977,7 +974,6 @@ export default function App() {
             ["vpn", "VPN", <VpnKeyIcon />],
             ["groups", "VPN-Groups", <GroupWorkIcon />],
             ["settings", "Settings", <SettingsIcon />],
-            ["logs", "Logs", <InputIcon />],
           ].map(([id, label, icon]) => (
             <ListItemButton
               key={id as string}
@@ -1024,7 +1020,7 @@ export default function App() {
           gap={1}
         >
           <Typography variant="h6" fontWeight={800} flex={1}>
-            {view === "vpn" ? "VPN Profiles" : view === "groups" ? "VPN Groups" : view === "settings" ? "Settings" : "Logs"}
+            {view === "vpn" ? "VPN Profiles" : view === "groups" ? "VPN Groups" : "Settings"}
           </Typography>
           <Tooltip title="Changelog">
             <IconButton onClick={() => setChangelogOpen(true)}>
@@ -1080,10 +1076,10 @@ export default function App() {
               </Button>
               <Button
                 startIcon={<FolderOpenIcon />}
-                disabled={view === "vpn" && !selectedProfile}
+                disabled={(view === "vpn" && !selectedProfile) || (view === "groups" && !selectedGroup)}
                 onClick={() => {
                   if (view === "vpn" && selectedProfile) void window.fvpn.openVpnLog(selectedProfile.name);
-                  else setView("logs");
+                  else if (view === "groups" && selectedGroup) void window.fvpn.openLogsDir();
                 }}
               >
                 Logs
@@ -1212,36 +1208,6 @@ export default function App() {
                 </Stack>
               </Paper>
             </Stack>
-          )}
-
-          {view === "logs" && (
-            <Paper sx={sectionSx()}>
-              <SectionTitle
-                icon={<InputIcon fontSize="small" sx={{ color: colors.primary }} />}
-                title="Logs"
-                action={
-                  <Stack direction="row" gap={1}>
-                    <Button size="small" startIcon={<FolderOpenIcon />} onClick={() => void window.fvpn.openLogsDir()}>
-                      Open folder
-                    </Button>
-                    <Button size="small" startIcon={<ClearAllIcon />} disabled={!logs.length} onClick={() => setLogs([])}>
-                      Clear
-                    </Button>
-                  </Stack>
-                }
-              />
-              <Box p={1.5} fontFamily="JetBrains Mono, monospace" fontSize={12} maxHeight="70vh" overflow="auto">
-                {logs.length === 0 ? (
-                  <Typography color={colors.muted}>VPN process output will appear here.</Typography>
-                ) : (
-                  logs.map((l, i) => (
-                    <Box key={`${l.t}-${i}`} py={0.25} px={0.5} bgcolor={i % 2 ? colors.surfaceLow : "transparent"}>
-                      [{l.name}] {l.line}
-                    </Box>
-                  ))
-                )}
-              </Box>
-            </Paper>
           )}
         </Box>
       </Box>
@@ -1644,7 +1610,7 @@ export default function App() {
       </Dialog>
 
       <Dialog open={wizardOpen} onClose={() => setWizardOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>OpenFortiGUI initial setup</DialogTitle>
+        <DialogTitle>FortiVPN GUI initial setup</DialogTitle>
         <DialogContent dividers>
           {wizardStep === 0 ? (
             <Stack spacing={2}>
