@@ -1,8 +1,36 @@
+<p align="center">
+  <img src="build/icons/512x512.png" width="112" height="112" alt="FortiVPN GUI logo" />
+</p>
+
+<p align="center">
+  <a href="https://www.electronjs.org/"><img src="https://img.shields.io/badge/Electron-47848F?style=flat-square&logo=electron&logoColor=white" alt="Electron" /></a>
+  <a href="https://react.dev/"><img src="https://img.shields.io/badge/React-20232A?style=flat-square&logo=react&logoColor=61DAFB" alt="React" /></a>
+  <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript" /></a>
+  <a href="https://vitejs.dev/"><img src="https://img.shields.io/badge/Vite-646CFF?style=flat-square&logo=vite&logoColor=white" alt="Vite" /></a>
+  <a href="https://mui.com/"><img src="https://img.shields.io/badge/MUI-007FFF?style=flat-square&logo=mui&logoColor=white" alt="MUI" /></a>
+  <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/Node.js-339933?style=flat-square&logo=nodedotjs&logoColor=white" alt="Node.js" /></a>
+  <a href="https://github.com/adrienverge/openfortivpn"><img src="https://img.shields.io/badge/openfortivpn-system-2ea44f?style=flat-square" alt="openfortivpn" /></a>
+  <img src="https://img.shields.io/badge/Linux-deb-FCC624?style=flat-square&logo=linux&logoColor=black" alt="Linux .deb" />
+  <a href="https://www.npmjs.com/package/ini"><img src="https://img.shields.io/badge/ini-config-EA6A47?style=flat-square&logo=npm&logoColor=white" alt="ini" /></a>
+  <a href="https://www.npmjs.com/package/keytar"><img src="https://img.shields.io/badge/keytar-libsecret-808080?style=flat-square&logo=npm&logoColor=white" alt="keytar" /></a>
+</p>
+
 # FortiVPN GUI
 
 Desktop VPN client for **FortiGate** (system [`openfortivpn`](https://github.com/adrienverge/openfortivpn)) and **Barracuda** (`barracudavpn`, optional). The UI is **Electron**, **React 19**, and **Material UI**. Profiles and groups use an **INI-style layout** under `~/.fortivpngui/`, compatible with **OpenFortiGUI** for import and day-to-day use.
 
 **Licence:** this repository is [MIT](LICENSE). Runtime dependencies (Electron, React, MUI, `openfortivpn`, etc.) have their own licences.
+
+## Screenshots
+
+PNG files live in [`docs/images/`](docs/images/). Replace them anytime; the table below lists every image in that folder.
+
+| Screenshot | Screenshot |
+|:---:|:---:|
+| ![](docs/images/image01.png) | ![](docs/images/image02.png) |
+| ![](docs/images/image03.png) | ![](docs/images/image04.png) |
+| ![](docs/images/image05.png) | ![](docs/images/image06.png) |
+| ![](docs/images/image07.png) | ![](docs/images/image08.png) |
 
 ---
 
