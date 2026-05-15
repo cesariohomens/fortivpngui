@@ -76,7 +76,8 @@
         "sudo",
         "libsecret-1-0"
       ],
-      "afterInstall": "resources/deb/postinst.sh"
+      "afterInstall": "resources/deb/postinst.sh",
+      "afterRemove": "resources/deb/postrm.sh"
     }
   }
 }

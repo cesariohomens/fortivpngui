@@ -1,75 +1,133 @@
 # FortiVPN GUI
 
-Desktop VPN client for **FortiGate** (via system [`openfortivpn`](https://github.com/adrienverge/openfortivpn)) and **Barracuda** (via `barracudavpn` if installed). UI is **Electron + React + Material UI / Material Icons**. Configuration lives under `~/.fortivpngui/` (compatible INI layout with OpenFortiGUI for easy import).
+Desktop VPN client for **FortiGate** (system [`openfortivpn`](https://github.com/adrienverge/openfortivpn)) and **Barracuda** (`barracudavpn`, optional). The UI is **Electron**, **React 19**, and **Material UI**. Profiles and groups use an **INI-style layout** under `~/.fortivpngui/`, compatible with **OpenFortiGUI** for import and day-to-day use.
 
-When you ship a new changelog entry, bump **`CHANGELOG_REV`** in both [`shared/constants.ts`](shared/constants.ts) and [`electron/config.ts`](electron/config.ts) so the in-app changelog prompt stays in sync.
+**Licence:** this repository is [MIT](LICENSE). Runtime dependencies (Electron, React, MUI, `openfortivpn`, etc.) have their own licences.
+
+---
+
+## Features
+
+- **FortiGate** profiles: `sudo openfortivpn` with generated configs, OTP on stdin, optional gateway certificate prompt and `trusted-cert` handling, traffic stats, per-profile log files.
+- **Barracuda** profiles: `barracudavpn` runner with temp config dirs and stdin OTP where supported.
+- **VPN groups**: connect/disconnect member profiles together; status derived from members.
+- **Tray** on Linux: quick connect/disconnect, open main window, Settings tab, quit (full quit stops VPN helpers and cleans temp files).
+- **Main window close** hides to tray; **orphan** temp configs under `TMPDIR` / `fortivpngui` are swept without stopping active tunnels.
+- **Settings**: paths, AES key/IV, password manager (**keytar** / libsecret), notifications, search, import/merge from OpenFortiGUI.
+- **External links** (`http`, `https`, `mailto`) open in the **system default browser** (main window navigation is guarded in the Electron main process).
+
+---
 
 ## Requirements
 
-- **Node.js** 20+ (for development)
-- **Linux** with `openfortivpn`, `ppp`, and `sudo` installed for Fortigate tunnels
-- Optional: `barracudavpn` for Barracuda profile type
+| Context | Needs |
+|--------|--------|
+| **Development** | Node.js **20+**, npm |
+| **Runtime (Linux)** | `openfortivpn`, `ppp`, `sudo` for FortiGate; optional `barracudavpn` for Barracuda |
+| **.deb install** | Same as runtime; **`libsecret-1-0`** for optional OS keychain storage |
+
+---
+
+## Project layout
+
+| Path | Role |
+|------|------|
+| `electron/` | Main process: window, tray, IPC, VPN runners (`openfortivpn-runner`, `barracuda-runner`), profiles/groups/settings/import, preload bridge |
+| `src/renderer/` | React UI (`App.tsx`), Vite entry |
+| `shared/` | Types and constants shared at build time (`constants.ts` imports `package.json` for version and metadata) |
+| `resources/` | Packaged assets: `sudo/` template, `deb/postinst.sh` & `deb/postrm.sh`, icons |
+| `dist/` / `dist-electron/` | Build output (ignored by git); `npm run build` fills these |
+
+---
 
 ## Development
 
 ```bash
 npm ci
-npm run build:electron   # compile main/preload
-npm run electron:dev     # Vite on :5173 + Electron with hot reload
+npm run build:electron   # compile main + preload TypeScript
+npm run electron:dev     # Vite :5173 + Electron with hot reload
 ```
 
-`npm start` and `npm run electron:dev` launch Electron with **`--no-sandbox`** so they work when `node_modules/electron/dist/chrome-sandbox` is not installed as setuid root (the default on many desktops). That avoids:
-
-`The SUID sandbox helper binary was found, but is not configured correctly`
-
-If you prefer the Chromium sandbox in development, fix permissions once (after each `npm install` that touches Electron):
+`npm start` and `npm run electron:dev` use **`--no-sandbox`** so Electron runs when `chrome-sandbox` is not setuid root (common after `npm install`). If you see *“The SUID sandbox helper binary was found, but is not configured correctly”*, either keep `--no-sandbox` or fix sandbox permissions once:
 
 ```bash
 sudo chown root:root node_modules/electron/dist/chrome-sandbox
 sudo chmod 4755 node_modules/electron/dist/chrome-sandbox
 ```
 
-Then remove `--no-sandbox` from the `start` / `electron:dev` scripts in `package.json` if you want a stricter setup.
+Debug the blank window: `FORTIVPN_OPEN_DEVTOOLS=1 npm start` and inspect the Console.
 
-For a blank window, run with DevTools: `FORTIVPN_OPEN_DEVTOOLS=1 npm start` and check the Console.
-
-Or production-like:
+Production-like local run:
 
 ```bash
-npm start                # build + electron --no-sandbox .
+npm start    # npm run build && electron --no-sandbox .
 ```
 
-## Build Debian package
+---
+
+## Configuration and data
+
+- **Base directory:** `~/.fortivpngui/`
+- **Main settings:** `~/.fortivpngui/main.conf` (INI: `main`, `paths`, `checks`, `gui`)
+- **Profiles:** local `~/.fortivpngui/vpnprofiles/`, global `/etc/fortivpngui/vpnprofiles/` (paths configurable in Settings)
+- **Groups:** `~/.fortivpngui/vpngroups/`
+- **Logs directory:** configurable; VPN process logs under the configured tree
+
+Paths are created on first run (`initMainConfig` in the Electron main process).
+
+---
+
+## Debian package
 
 ```bash
 npm run dist
 ```
 
-Output: `release/fortivpngui_<version>_amd64.deb` (large binary; use **Git LFS** or **GitHub Releases** if you commit artefacts to git).
+Artifact: `release/fortivpngui_<version>_amd64.deb` (large; distribute via **GitHub Releases** or similar, not necessarily inside git).
 
-Native module **keytar** is rebuilt for Electron via `electron-builder install-app-deps` (postinstall).
+- **Depends:** `openfortivpn`, `ppp`, `sudo`, `libsecret-1-0` (see `package.json` → `build.deb.depends`).
+- **`postinst`** (`resources/deb/postinst.sh`): installs `/etc/sudoers.d/fortivpngui` from the unpacked template (`asarUnpack` for `resources/sudo/**` so the file exists on disk under `/opt/fortivpngui/...`), validates with `visudo -c`, adjusts `chrome-sandbox` setuid when present, refreshes desktop/icon caches.
+- **`postrm`** (`resources/deb/postrm.sh`): on **`remove`** / **`purge`** only, deletes `/etc/sudoers.d/fortivpngui` (not on **upgrade**).
 
-### Sudo (Fortigate)
+`npm install` **postinstall** only runs `electron-builder install-app-deps` (rebuilds **keytar** for the current Electron); it does **not** install sudoers.
 
-`openfortivpn` must run as root. Install a sudoers snippet so your user can run it without a password (tighten host/user as needed):
+### Sudo (FortiGate)
+
+`openfortivpn` must run as root. The packaged rule (broad, review before deploying) is in `resources/sudo/fortivpngui.sudoers`. Tighten user/host in production if needed:
 
 ```text
 # /etc/sudoers.d/fortivpngui
 youruser ALL=(root) NOPASSWD: /usr/bin/openfortivpn *
 ```
 
-The trailing ` * ` is required: this app runs `sudo /usr/bin/openfortivpn -c /tmp/...` (and may add `--otp`, `-v`, etc.). A rule with only `/usr/bin/openfortivpn` and no ` * ` usually does **not** match that command line, so `sudo` can still prompt for a password or reject the invocation while the tunnel partially starts—leading to confusing auth or OTP behaviour.
+The trailing **` * `** is important: the app invokes `sudo /usr/bin/openfortivpn -c /tmp/...` (plus flags). A rule without arguments often does **not** match, and you get password prompts or odd OTP behaviour.
 
-`npm install` **postinstall** only runs `electron-builder install-app-deps` (rebuilds **keytar**); it does **not** change sudoers. The **`.deb`** runs `resources/deb/postinst.sh`, which installs the drop-in **`/etc/sudoers.d/fortivpngui`** (included from the main sudoers via `#includedir`). It does not append to `/etc/sudoers`; use `sudo visudo -f /etc/sudoers.d/fortivpngui` to inspect or edit that file.
+Inspect the installed drop-in: `sudo visudo -f /etc/sudoers.d/fortivpngui`.
 
-A template is shipped as `resources/sudo/fortivpngui.sudoers` (review before installing).
+### FortiGate OTP tips
 
-FortiGate **email/SMS OTP** often needs the gateway to offer token mode instead of FortiToken Mobile push. In the profile editor, try **“no FTM push”** (`no-ftm-push`) and, if the token arrives late, increase **OTP delay** (`otp-delay`, seconds) to match your MFA flow.
+For **email/SMS OTP**, the gateway may need token mode instead of FortiToken Mobile push. In the profile editor, try **“no FTM push”** (`no-ftm-push`) and, if the token is slow, increase **OTP delay** (`otp-delay`, seconds).
+
+---
 
 ## Import from OpenFortiGUI
 
-Use **Settings → Import** or the first-run wizard to copy `~/.openfortigui/vpnprofiles/*.conf` and `vpngroups/*.conf` into `~/.fortivpngui/`.
+Use **Settings → Import** or the first-run wizard to copy `~/.openfortigui/vpnprofiles/*.conf` and `vpngroups/*.conf` into `~/.fortivpngui/`. You can also merge keys from `~/.openfortigui/main.conf` where supported.
 
-## Licence
+---
 
-GPL-3.0 (same spirit as OpenFortiGUI). See upstream licences for `openfortivpn` and Electron stack.
+## Changelog in the app
+
+When you add or change changelog content shown to users, bump **`CHANGELOG_REV`** in **both** [`shared/constants.ts`](shared/constants.ts) and [`electron/config.ts`](electron/config.ts) so the renderer and main process stay aligned.
+
+---
+
+## Native module rebuild
+
+**keytar** is compiled for Electron via `electron-builder install-app-deps` (the `postinstall` script in `package.json`). After changing Electron version, run `npm install` again so the native binary matches.
+
+---
+
+## Third-party components
+
+This app bundles or depends on **Electron**, **React**, **Vite**, **Material UI**, **ini**, **keytar**, and system tools **openfortivpn** / **barracudavpn**. Their licences apply to those components, not to this repo’s MIT-licensed source as a whole.
