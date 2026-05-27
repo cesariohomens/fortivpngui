@@ -20,6 +20,7 @@ contextBridge.exposeInMainWorld("fvpn", {
   vpnStatus: (name: string) => ipcRenderer.invoke("vpn:status", name) as Promise<string>,
   submitFortigateStdinOtp: (profileName: string, otp: string) =>
     ipcRenderer.invoke("vpn:submitFortigateStdinOtp", profileName, otp) as Promise<boolean>,
+  resetOtpPrompt: (profileName: string) => ipcRenderer.invoke("vpn:resetOtpPrompt", profileName) as Promise<void>,
   trustGatewayDigest: (profileName: string, digest: string) =>
     ipcRenderer.invoke("vpn:trustGatewayDigest", profileName, digest) as Promise<false | "profile" | "cache">,
   chooseDirectory: (initialPath?: string) => ipcRenderer.invoke("app:chooseDirectory", initialPath) as Promise<string | null>,

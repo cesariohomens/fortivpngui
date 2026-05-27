@@ -58,6 +58,7 @@ import brandingMark from "../../build/icons/512x512.png";
 import { scheduleAfterOverlayClose } from "./scheduleAfterOverlayClose";
 
 type ViewId = "vpn" | "groups" | "settings";
+type OtpPhase = "idle" | "prompt" | "awaiting_auth" | "wrong_otp";
 
 const NAME_RE = /^[a-zA-ZäöüÄÖÜ0-9 \-_]{3,}$/;
 const navWidth = 224;
@@ -238,6 +239,7 @@ export default function App() {
   const [loginChallengeExplicitOtp, setLoginChallengeExplicitOtp] = useState(false);
   /** True when openfortivpn is blocked on stdin waiting for 2FA (same as terminal after the prompt). */
   const [loginOtpViaStdin, setLoginOtpViaStdin] = useState(false);
+  const [loginOtpPhase, setLoginOtpPhase] = useState<OtpPhase>("idle");
   const lastOtpChallengeLogKey = useRef("");
   const fortigateLastConnectHadOtp = useRef<Record<string, boolean>>({});
   /** After the user dismisses the Fortigate OTP dialog, ignore older log lines so the effect does not reopen from stale "Could not authenticate" entries (different `t` → different key). */
@@ -247,6 +249,7 @@ export default function App() {
   const loginOpenRef = useRef(false);
   const loginTargetRef = useRef<string | null>(null);
   const loginOtpViaStdinRef = useRef(false);
+  const loginOtpPhaseRef = useRef<OtpPhase>("idle");
 
   const [gwCertDlg, setGwCertDlg] = useState<{ profileName: string; digest: string; body: string } | null>(null);
   const [changelogOpen, setChangelogOpen] = useState(false);
@@ -327,16 +330,26 @@ export default function App() {
     loginOpenRef.current = loginOpen;
     loginTargetRef.current = loginTarget;
     loginOtpViaStdinRef.current = loginOtpViaStdin;
-  }, [loginOpen, loginTarget, loginOtpViaStdin]);
+    loginOtpPhaseRef.current = loginOtpPhase;
+  }, [loginOpen, loginTarget, loginOtpViaStdin, loginOtpPhase]);
 
   useEffect(() => {
     return window.fvpn.onFortigateStdinOtpPrompt((ev) => {
       const name = ev.name;
-      if (loginOpenRef.current && loginTargetRef.current === name && loginOtpViaStdinRef.current) return;
+      const phase = loginOtpPhaseRef.current;
+      if (phase === "wrong_otp") return;
+      if (phase === "awaiting_auth") {
+        if (loginTargetRef.current !== name) return;
+        fortigateLastConnectHadOtp.current[name] = false;
+        setLoginOtpPhase("prompt");
+      } else if (phase === "prompt" && loginOpenRef.current && loginTargetRef.current === name) {
+        return;
+      }
       const profile = profilesRef.current.find((x) => x.name === name);
       if (!profile) return;
       if (profile.device_type === "fortigate") {
         if (profile.always_ask_otp) return;
+        setLoginOtpPhase("prompt");
         setLoginOtpViaStdin(true);
         setLoginChallengeExplicitOtp(true);
         setLoginKind("challenge");
@@ -347,6 +360,7 @@ export default function App() {
         setLoginOpen(true);
       } else if (profile.device_type === "barracuda") {
         if (!profile.always_ask_otp) return;
+        setLoginOtpPhase("prompt");
         setLoginOtpViaStdin(true);
         setLoginChallengeExplicitOtp(true);
         setLoginKind("challenge");
@@ -365,6 +379,18 @@ export default function App() {
     });
     const unsubStatus = window.fvpn.onVpnStatus((ev) => {
       setStatus((prev) => ({ ...prev, [ev.name]: ev.state }));
+      if (ev.state === "connected" && loginTargetRef.current === ev.name) {
+        const phase = loginOtpPhaseRef.current;
+        if (phase === "awaiting_auth" || phase === "prompt") {
+          fortigateLastConnectHadOtp.current[ev.name] = false;
+          setLoginOtpPhase("idle");
+          setLoginOpen(false);
+          setLoginKind(null);
+          setLoginTarget(null);
+          setLoginOtpViaStdin(false);
+          setLoginOtp("");
+        }
+      }
     });
     const unsubStats = window.fvpn.onVpnStats((ev) => {
       setStats((prev) => ({ ...prev, [ev.name]: ev.stats }));
@@ -377,7 +403,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (loginOpen || !profiles.length) return;
+    if (!profiles.length) return;
     const explicitOtpNeed = (line: string) => /No OTP specified|No token specified/i.test(line);
     const authFailMaybeOtp = (line: string) => /Could not authenticate to (?:the )?gateway/i.test(line) || /No cookie given/i.test(line);
 
@@ -386,14 +412,31 @@ export default function App() {
       const explicit = explicitOtpNeed(e.line);
       const maybeAuth = authFailMaybeOtp(e.line);
       if (!explicit && !maybeAuth) continue;
-      if (maybeAuth && fortigateLastConnectHadOtp.current[e.name]) continue;
-      const dismissed = fortiOtpChallengeDismissedAt.current[e.name];
-      if (dismissed !== undefined && e.t <= dismissed) continue;
       const key = `${e.t}|${e.name}|${e.line}`;
       if (key === lastOtpChallengeLogKey.current) continue;
       const profile = profiles.find((x) => x.name === e.name);
-      if (!profile || profile.device_type !== "fortigate" || profile.always_ask_otp) continue;
+      if (!profile || profile.device_type !== "fortigate") continue;
+
+      const phase = loginOtpPhaseRef.current;
+      const target = loginTargetRef.current;
+
+      if (maybeAuth && target === e.name && phase === "awaiting_auth") {
+        lastOtpChallengeLogKey.current = key;
+        setLoginOtpPhase("wrong_otp");
+        setLoginOpen(true);
+        return;
+      }
+
+      if (phase === "awaiting_auth" || phase === "wrong_otp" || phase === "prompt") continue;
+      if (loginOpenRef.current) continue;
+      if (maybeAuth && fortigateLastConnectHadOtp.current[e.name]) continue;
+      if (profile.always_ask_otp) continue;
+
+      const dismissed = fortiOtpChallengeDismissedAt.current[e.name];
+      if (dismissed !== undefined && e.t <= dismissed) continue;
+
       lastOtpChallengeLogKey.current = key;
+      setLoginOtpPhase("prompt");
       setLoginOtpViaStdin(false);
       setLoginChallengeExplicitOtp(explicit);
       setLoginKind("challenge");
@@ -404,7 +447,7 @@ export default function App() {
       setLoginOpen(true);
       return;
     }
-  }, [logs, loginOpen, profiles]);
+  }, [logs, loginOpen, loginOtpPhase, profiles]);
 
   const selectedProfile = useMemo(
     () => (selectedProfileName ? profiles.find((p) => p.name === selectedProfileName) ?? null : null),
@@ -476,6 +519,7 @@ export default function App() {
     if (p.device_type === "fortigate" && p.always_ask_otp) {
       lastOtpChallengeLogKey.current = "";
       delete fortiOtpChallengeDismissedAt.current[name];
+      setLoginOtpPhase("prompt");
       setLoginOtpViaStdin(false);
       setLoginKind("always");
       setLoginTarget(name);
@@ -489,6 +533,7 @@ export default function App() {
     lastOtpChallengeLogKey.current = "";
     fortigateLastConnectHadOtp.current[name] = false;
     delete fortiOtpChallengeDismissedAt.current[name];
+    setLoginOtpPhase("idle");
     setLoginOtpViaStdin(false);
     try {
       await window.fvpn.startVpn(name);
@@ -702,12 +747,15 @@ export default function App() {
         return;
       }
       const ok = await window.fvpn.submitFortigateStdinOtp(loginTarget, loginOtp.trim());
-      if (!ok) notify("Could not send the token (no active VPN process for this profile).");
+      if (!ok) {
+        notify("Could not send the token (no active VPN process for this profile).");
+        return;
+      }
+      fortigateLastConnectHadOtp.current[loginTarget] = true;
+      setLoginOtpPhase("awaiting_auth");
       setLoginOpen(false);
-      setLoginKind(null);
-      setLoginTarget(null);
-      setLoginOtpViaStdin(false);
       setLoginOtp("");
+      notify("Validating one-time password…");
       return;
     }
     if (!loginUser.trim()) {
@@ -728,11 +776,12 @@ export default function App() {
       await window.fvpn.startVpn(loginTarget, creds);
     } catch (e) {
       notify((e as Error).message);
+      return;
     }
+    setLoginOtpPhase("awaiting_auth");
     setLoginOpen(false);
-    setLoginKind(null);
-    setLoginTarget(null);
-    setLoginOtpViaStdin(false);
+    setLoginOtp("");
+    notify("Validating one-time password…");
   };
 
   const cancelLogin = async () => {
@@ -742,6 +791,7 @@ export default function App() {
       fortiOtpChallengeDismissedAt.current[target] = now;
       fortigateLastConnectHadOtp.current[target] = false;
     }
+    setLoginOtpPhase("idle");
     setLoginOpen(false);
     setLoginKind(null);
     setLoginTarget(null);
@@ -753,6 +803,21 @@ export default function App() {
     } catch (e) {
       console.warn("[login] stop after cancel failed", e);
     }
+  };
+
+  const disconnectAfterWrongOtp = async () => {
+    await cancelLogin();
+  };
+
+  const requestNewOtp = async () => {
+    const target = loginTarget;
+    if (!target) return;
+    await window.fvpn.resetOtpPrompt(target);
+    lastOtpChallengeLogKey.current = "";
+    fortigateLastConnectHadOtp.current[target] = false;
+    setLoginOtp("");
+    setLoginOtpPhase("prompt");
+    setLoginOpen(true);
   };
 
   const saveSettingsUi = async (partial: Partial<MainSettings>) => {
@@ -1508,25 +1573,52 @@ export default function App() {
         </DialogActions>
       </Dialog>
 
-      <Dialog open={loginOpen} onClose={() => void cancelLogin()} maxWidth="xs" fullWidth>
-        <DialogTitle>One-time password</DialogTitle>
+      <Dialog
+        open={loginOpen}
+        onClose={(_, reason) => {
+          if (loginOtpPhase === "wrong_otp") return;
+          if (reason === "backdropClick" || reason === "escapeKeyDown") void cancelLogin();
+        }}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>{loginOtpPhase === "wrong_otp" ? "One-time password failed" : "One-time password"}</DialogTitle>
         <DialogContent>
-          <TextField
-            autoFocus
-            fullWidth
-            margin="dense"
-            label="OTP"
-            type="password"
-            value={loginOtp}
-            onChange={(e) => setLoginOtp(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && void submitLogin()}
-          />
+          {loginOtpPhase === "wrong_otp" ? (
+            <Typography variant="body2" color={colors.muted}>
+              The one-time password was invalid or has expired. Disconnect the VPN or request a new code.
+            </Typography>
+          ) : (
+            <TextField
+              autoFocus
+              fullWidth
+              margin="dense"
+              label="OTP"
+              type="password"
+              value={loginOtp}
+              onChange={(e) => setLoginOtp(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && void submitLogin()}
+            />
+          )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => void cancelLogin()}>Cancel</Button>
-          <Button variant="contained" onClick={() => void submitLogin()}>
-            Submit
-          </Button>
+          {loginOtpPhase === "wrong_otp" ? (
+            <>
+              <Button color="error" onClick={() => void disconnectAfterWrongOtp()}>
+                Disconnect
+              </Button>
+              <Button variant="contained" onClick={() => void requestNewOtp()}>
+                Request new OTP
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button onClick={() => void cancelLogin()}>Cancel</Button>
+              <Button variant="contained" onClick={() => void submitLogin()}>
+                Submit
+              </Button>
+            </>
+          )}
         </DialogActions>
       </Dialog>
 

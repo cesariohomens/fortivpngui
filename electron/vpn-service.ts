@@ -19,8 +19,10 @@ function normalizeVpnStartArg(input?: string | VpnStartCredentials): { username?
 
 /** Barracuda interactive OTP: `barracudavpn` reads the token from stdin (TUI). OpenFortiGUI uses `--onetimepwd`, which is ignored on several Linux client builds. */
 const barracudaStdinOtpPromptSent = new Set<string>();
-/** One IPC per Fortigate connect attempt until token submitted / tunnel up / stop (avoids duplicate modals). */
+/** One IPC per Fortigate OTP cycle until explicit reset, reconnect cycle, start, or stop. */
 const fortigateStdinOtpPromptSent = new Set<string>();
+const otpReconnectCycleDebounced = new Map<string, number>();
+const OTP_RECONNECT_DEBOUNCE_MS = 2000;
 
 /**
  * OpenFortiGUI `vpnlogger.cpp`: when `otp_prompt` is empty, OTP UI if chunk contains any of these; when set, substring/regex match.
@@ -62,18 +64,39 @@ function maybeEmitBarracudaStdinOtpPrompt(profileName: string, line: string, pro
   emit("vpn:fortigate-stdin-otp-prompt", { name: profileName });
 }
 
+function isOpenfortivpnReconnectCycleLine(line: string): boolean {
+  return (
+    /tunnel is down/i.test(line) ||
+    /got disconnected/i.test(line) ||
+    /sleeping \d+ seconds? before/i.test(line) ||
+    /\breconnecting\b/i.test(line) ||
+    /\bretrying\b/i.test(line) ||
+    /connection timed out/i.test(line)
+  );
+}
+
+/** Allow one new stdin OTP IPC after VPN drop / persistent reconnect (debounced per profile). */
+function beginOtpReconnectCycle(profileName: string): void {
+  const now = Date.now();
+  const last = otpReconnectCycleDebounced.get(profileName) ?? 0;
+  if (now - last < OTP_RECONNECT_DEBOUNCE_MS) return;
+  otpReconnectCycleDebounced.set(profileName, now);
+  fortigateStdinOtpPromptSent.delete(profileName);
+  barracudaStdinOtpPromptSent.delete(profileName);
+}
+
+/** User chose to request a new OTP after a failed attempt. */
+export function resetFortigateOtpPrompt(profileName: string): void {
+  fortigateStdinOtpPromptSent.delete(profileName);
+  barracudaStdinOtpPromptSent.delete(profileName);
+}
+
 /** Feed OTP to a running openfortivpn (FortiGate 2FA on stdin) or barracudavpn (TUI), like typing in a terminal. */
 export function submitFortigateStdinOtp(profileName: string, otp: string): boolean {
   const t = otp.trim();
   if (!t) return false;
-  if (ofv.writeOpenfortivpnStdinLine(profileName, t)) {
-    fortigateStdinOtpPromptSent.delete(profileName);
-    return true;
-  }
-  if (barr.writeBarracudaStdinLine(profileName, t)) {
-    barracudaStdinOtpPromptSent.delete(profileName);
-    return true;
-  }
+  if (ofv.writeOpenfortivpnStdinLine(profileName, t)) return true;
+  if (barr.writeBarracudaStdinLine(profileName, t)) return true;
   return false;
 }
 
@@ -264,6 +287,7 @@ function maybeEmitFortigateStdinOtpPrompt(profileName: string, line: string, otp
 
 function processFortigateLogLine(profileName: string, line: string, stream: "stdout" | "stderr", otpPrompt?: string): void {
   appendVpnLogLine(profileName, stream, line);
+  if (isOpenfortivpnReconnectCycleLine(line)) beginOtpReconnectCycle(profileName);
   maybeEmitFortigateStdinOtpPrompt(profileName, line, otpPrompt);
   const iface = line.match(/\bInterface\s+([^\s.]+)\s+is\s+UP\b/i)?.[1];
   if (iface) startTrafficPoll(profileName, iface);
@@ -418,7 +442,6 @@ export async function startVpn(profileName: string, arg?: string | VpnStartCrede
       emit("vpn:status", { name: profileName, state: "disconnected" });
     },
     () => {
-      fortigateStdinOtpPromptSent.delete(profileName);
       const prevS = status.get(profileName);
       status.set(profileName, "connected");
       onConnStateChange(profileName, prevS, "connected");
