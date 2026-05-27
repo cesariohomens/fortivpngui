@@ -41,7 +41,7 @@ PNG files live in [`docs/images/`](docs/images/). Replace them anytime; the tabl
 - **VPN groups**: connect/disconnect member profiles together; status derived from members.
 - **Tray** on Linux: quick connect/disconnect, open main window, Settings tab, quit (full quit stops VPN helpers and cleans temp files).
 - **Main window close** hides to tray; **orphan** temp configs under `TMPDIR` / `fortivpngui` are swept without stopping active tunnels.
-- **Settings**: paths, AES key/IV, password manager (**keytar** / libsecret), notifications, search, import/merge from OpenFortiGUI.
+- **Settings**: paths, AES key/IV, password manager (**keytar** / libsecret), notifications, search, **theme** (dark / light / system, stored in `main.conf`), import/merge from OpenFortiGUI.
 - **External links** (`http`, `https`, `mailto`) open in the **system default browser** (main window navigation is guarded in the Electron main process).
 
 ---
@@ -96,7 +96,7 @@ npm start    # npm run build && electron --no-sandbox .
 ## Configuration and data
 
 - **Base directory:** `~/.fortivpngui/`
-- **Main settings:** `~/.fortivpngui/main.conf` (INI: `main`, `paths`, `checks`, `gui`)
+- **Main settings:** `~/.fortivpngui/main.conf` (INI: `main`, `paths`, `checks`, `gui` — includes `gui/theme_mode` = `dark`, `light`, or `system`)
 - **Profiles:** local `~/.fortivpngui/vpnprofiles/`, global `/etc/fortivpngui/vpnprofiles/` (paths configurable in Settings)
 - **Groups:** `~/.fortivpngui/vpngroups/`
 - **Logs directory:** configurable; VPN process logs under the configured tree

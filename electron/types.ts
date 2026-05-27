@@ -1,4 +1,5 @@
 export type DeviceType = "fortigate" | "barracuda";
+export type ThemeMode = "dark" | "light" | "system";
 
 export interface VpnStartCredentials {
   username?: string;
@@ -77,4 +78,5 @@ export interface MainSettings {
   connect_on_dblclick: boolean;
   /** OpenFortiGUI `main/show_search`: show profile search field. */
   show_search: boolean;
+  theme_mode: ThemeMode;
 }

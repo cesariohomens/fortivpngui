@@ -56,30 +56,16 @@ import type { MainSettings, VpnGroup, VpnProfile, VpnStartCredentials, VpnTraffi
 import { APP_AUTHOR, APP_LICENSE, APP_NAME, APP_REPOSITORY, APP_VERSION, CHANGELOG_REV } from "../../shared/constants";
 import brandingMark from "../../build/icons/512x512.png";
 import { scheduleAfterOverlayClose } from "./scheduleAfterOverlayClose";
+import { useAppColors, useThemeMode } from "./ThemeModeProvider";
+import { ThemeToggleButton } from "./ThemeToggleButton";
+import { parseThemeMode } from "../../shared/theme";
+import type { AppColors } from "./theme";
 
 type ViewId = "vpn" | "groups" | "settings";
 type OtpPhase = "idle" | "prompt" | "awaiting_auth" | "wrong_otp";
 
 const NAME_RE = /^[a-zA-ZäöüÄÖÜ0-9 \-_]{3,}$/;
 const navWidth = 224;
-
-const colors = {
-  background: "#131313",
-  nav: "#001c3a",
-  surface: "#201f1f",
-  surfaceLow: "#1c1b1b",
-  surfaceHigh: "#2a2a2a",
-  outline: "#414753",
-  text: "#e5e2e1",
-  muted: "#c1c6d5",
-  primary: "#a7c8ff",
-  primaryContainer: "#0074d9",
-  secondaryContainer: "#2f486a",
-  error: "#ffb4ab",
-  warning: "#ffb68e",
-  connected: "#32d583",
-  disconnected: "#8b919e",
-};
 
 const emptyProfile = (): VpnProfile => ({
   name: "",
@@ -150,13 +136,13 @@ function randKey(): string {
   return out;
 }
 
-function statusColor(state: string): string {
+function statusColor(state: string, colors: AppColors): string {
   if (state === "connected") return colors.connected;
   if (state === "connecting") return colors.warning;
   return colors.disconnected;
 }
 
-function sectionSx() {
+function sectionSx(colors: AppColors) {
   return {
     bgcolor: colors.surface,
     border: `1px solid ${colors.outline}`,
@@ -166,6 +152,7 @@ function sectionSx() {
 }
 
 function SectionTitle({ icon, title, action }: { icon?: React.ReactNode; title: string; action?: React.ReactNode }) {
+  const colors = useAppColors();
   return (
     <Box px={2} py={1.5} bgcolor={colors.surfaceLow} borderBottom={`1px solid ${colors.outline}`} display="flex" alignItems="center" gap={1}>
       {icon}
@@ -178,6 +165,7 @@ function SectionTitle({ icon, title, action }: { icon?: React.ReactNode; title: 
 }
 
 function StatusChip({ state }: { state: string }) {
+  const colors = useAppColors();
   return (
     <Chip
       size="small"
@@ -192,7 +180,7 @@ function StatusChip({ state }: { state: string }) {
           width: 7,
           height: 7,
           borderRadius: "50%",
-          bgcolor: statusColor(state),
+          bgcolor: statusColor(state, colors),
           ml: 1,
         },
       }}
@@ -201,6 +189,8 @@ function StatusChip({ state }: { state: string }) {
 }
 
 export default function App() {
+  const colors = useAppColors();
+  const { setThemeMode } = useThemeMode();
   const [view, setView] = useState<ViewId>("vpn");
   const [bootError, setBootError] = useState<string | null>(null);
   const [profiles, setProfiles] = useState<VpnProfile[]>([]);
@@ -301,6 +291,7 @@ export default function App() {
 
   useEffect(() => {
     if (!settings) return;
+    setThemeMode(parseThemeMode(settings.theme_mode));
     setWizardAesKey(settings.aeskey);
     setWizardAesIv(settings.aesiv);
     setWizardUseStore(settings.use_system_password_store);
@@ -308,7 +299,7 @@ export default function App() {
     settingsPromptsDone.current = true;
     if (!settings.setupwizard) setWizardOpen(true);
     if (settings.changelogrev_read < CHANGELOG_REV) setChangelogOpen(true);
-  }, [settings]);
+  }, [settings, setThemeMode]);
 
   useEffect(() => {
     return window.fvpn.onAppNavigate((ev) => {
@@ -906,7 +897,7 @@ export default function App() {
   const certLocked = settings.disallow_unsecure_certificates;
 
   const renderProfileTable = (title: string, items: VpnProfile[]) => (
-    <Paper sx={sectionSx()}>
+    <Paper sx={sectionSx(colors)}>
       <SectionTitle
         icon={<VpnKeyIcon fontSize="small" sx={{ color: colors.primary }} />}
         title={title}
@@ -1088,6 +1079,7 @@ export default function App() {
           <Typography variant="h6" fontWeight={800} flex={1}>
             {view === "vpn" ? "VPN Profiles" : view === "groups" ? "VPN Groups" : "Settings"}
           </Typography>
+          <ThemeToggleButton />
           <Tooltip title="Changelog">
             <IconButton onClick={() => setChangelogOpen(true)}>
               <ArticleIcon />
@@ -1108,7 +1100,7 @@ export default function App() {
 
         <Box p={3}>
           {(view === "vpn" || view === "groups") && (
-            <Stack direction="row" flexWrap="wrap" gap={1} mb={2} p={1} sx={sectionSx()}>
+            <Stack direction="row" flexWrap="wrap" gap={1} mb={2} p={1} sx={sectionSx(colors)}>
               <Button
                 variant={selectedConnectionActive ? "contained" : "outlined"}
                 color={selectedConnectionActive ? "error" : "primary"}
@@ -1170,7 +1162,7 @@ export default function App() {
           )}
 
           {view === "groups" && (
-            <Paper sx={sectionSx()}>
+            <Paper sx={sectionSx(colors)}>
               <SectionTitle icon={<GroupWorkIcon fontSize="small" sx={{ color: colors.primary }} />} title="VPN-Groups" />
               <TableContainer sx={{ overflowX: "auto" }}>
                 <Table size="small" sx={{ minWidth: 680 }}>
@@ -1217,7 +1209,7 @@ export default function App() {
 
           {view === "settings" && (
             <Stack spacing={2} maxWidth={920}>
-              <Paper sx={sectionSx()}>
+              <Paper sx={sectionSx(colors)}>
                 <SectionTitle icon={<SettingsIcon fontSize="small" sx={{ color: colors.primary }} />} title="Main" />
                 <Stack p={2} spacing={1.5}>
                   <FormControlLabel control={<Checkbox checked={settings.debug} onChange={(_, c) => void saveSettingsUi({ debug: c })} />} label="Debug" />
@@ -1228,7 +1220,7 @@ export default function App() {
                   <FormControlLabel control={<Checkbox checked={settings.disallow_unsecure_certificates} onChange={(_, c) => void saveSettingsUi({ disallow_unsecure_certificates: c })} />} label="Disallow insecure certificates" />
                 </Stack>
               </Paper>
-              <Paper sx={sectionSx()}>
+              <Paper sx={sectionSx(colors)}>
                 <SectionTitle icon={<FolderOpenIcon fontSize="small" sx={{ color: colors.primary }} />} title="Paths" />
                 <Stack p={2} spacing={1.5}>
                   {[
@@ -1256,13 +1248,16 @@ export default function App() {
                   ))}
                 </Stack>
               </Paper>
-              <Paper sx={sectionSx()}>
+              <Paper sx={sectionSx(colors)}>
                 <SectionTitle icon={<TuneIcon fontSize="small" sx={{ color: colors.primary }} />} title="GUI" />
                 <Stack p={2} spacing={1}>
                   <FormControlLabel control={<Checkbox checked={settings.start_minimized} onChange={(_, c) => void saveSettingsUi({ start_minimized: c })} />} label="Start minimized" />
                   <FormControlLabel control={<Checkbox checked={settings.disable_notifications} onChange={(_, c) => void saveSettingsUi({ disable_notifications: c })} />} label="Disable notifications" />
                   <FormControlLabel control={<Checkbox checked={settings.connect_on_dblclick} onChange={(_, c) => void saveSettingsUi({ connect_on_dblclick: c })} />} label="Connect on double-click" />
                   <FormControlLabel control={<Checkbox checked={settings.show_search} onChange={(_, c) => void saveSettingsUi({ show_search: c })} />} label="Show search" />
+                  <Typography variant="body2" color={colors.muted}>
+                    Theme: {settings.theme_mode} (header icon cycles dark → light → system; stored in main.conf)
+                  </Typography>
                   <Stack direction="row" gap={1}>
                     <Button variant="outlined" onClick={() => void mergeOfgMain()}>
                       Merge OpenFortiGUI main.conf
@@ -1392,7 +1387,7 @@ export default function App() {
           )}
           {profileEditorTab === 0 ? (
             <Stack spacing={2}>
-              <Paper sx={sectionSx()}>
+              <Paper sx={sectionSx(colors)}>
                 <SectionTitle icon={<TuneIcon fontSize="small" sx={{ color: colors.primary }} />} title="Common" />
                 <Stack p={2} spacing={2}>
                   <TextField
@@ -1412,7 +1407,7 @@ export default function App() {
                   <FormControlLabel control={<Checkbox checked={profileDraft.persistent} onChange={(_, c) => setProfileDraft({ ...profileDraft, persistent: c })} />} label="Reconnect on disconnect" />
                 </Stack>
               </Paper>
-              <Paper sx={sectionSx()}>
+              <Paper sx={sectionSx(colors)}>
                 <SectionTitle
                   icon={<VpnKeyIcon fontSize="small" sx={{ color: colors.primary }} />}
                   title="Credentials"
@@ -1438,7 +1433,7 @@ export default function App() {
                   />
                 </Stack>
               </Paper>
-              <Paper sx={sectionSx()}>
+              <Paper sx={sectionSx(colors)}>
                 <SectionTitle
                   title="Certificate"
                   action={<FormControlLabel control={<Checkbox checked={certificateEnabled} disabled={certLocked && profileDraft.device_type === "fortigate"} onChange={(_, c) => setCertificateEnabled(c)} />} label="Enabled" />}
@@ -1449,7 +1444,7 @@ export default function App() {
                   <TextField disabled={!certificateEnabled || (certLocked && profileDraft.device_type === "fortigate")} label="CA-File" value={profileDraft.ca_file} onChange={(e) => setProfileDraft({ ...profileDraft, ca_file: e.target.value })} />
                 </Stack>
               </Paper>
-              <Paper sx={sectionSx()}>
+              <Paper sx={sectionSx(colors)}>
                 <SectionTitle title="Fortigate Gateway Validation" />
                 <Stack p={2} spacing={2}>
                   <FormControlLabel control={<Checkbox disabled={certLocked && profileDraft.device_type === "fortigate"} checked={profileDraft.trust_all_gw_certs} onChange={(_, c) => setProfileDraft({ ...profileDraft, trust_all_gw_certs: c })} />} label="Trust all Certs" />
@@ -1471,7 +1466,7 @@ export default function App() {
             </Stack>
           ) : (
             <Stack spacing={2}>
-              <Paper sx={sectionSx()}>
+              <Paper sx={sectionSx(colors)}>
                 <SectionTitle title="Advanced" />
                 <Stack p={2} spacing={1}>
                   <FormControlLabel control={<Checkbox checked={profileDraft.autostart} onChange={(_, c) => setProfileDraft({ ...profileDraft, autostart: c })} />} label="Connect on program start" />
@@ -1492,7 +1487,7 @@ export default function App() {
                   <FormControlLabel control={<Checkbox checked={profileDraft.no_ftm_push} onChange={(_, c) => setProfileDraft({ ...profileDraft, no_ftm_push: c })} />} label="No FortiToken Mobile push" />
                 </Stack>
               </Paper>
-              <Paper sx={sectionSx()}>
+              <Paper sx={sectionSx(colors)}>
                 <SectionTitle title="PPPD" />
                 <Stack p={2} spacing={1.5}>
                   <FormControlLabel control={<Checkbox checked={profileDraft.pppd_no_peerdns} onChange={(_, c) => setProfileDraft({ ...profileDraft, pppd_no_peerdns: c })} />} label="No peerdns" />
@@ -1504,7 +1499,7 @@ export default function App() {
                   <TextField label="Call name" value={profileDraft.pppd_call} onChange={(e) => setProfileDraft({ ...profileDraft, pppd_call: e.target.value })} />
                 </Stack>
               </Paper>
-              <Paper sx={sectionSx()}>
+              <Paper sx={sectionSx(colors)}>
                 <SectionTitle title="SSL" />
                 <Stack p={2} spacing={1.5}>
                   <FormControlLabel control={<Checkbox disabled={certLocked && profileDraft.device_type === "fortigate"} checked={profileDraft.insecure_ssl} onChange={(_, c) => setProfileDraft({ ...profileDraft, insecure_ssl: c })} />} label="Insecure SSL" />
@@ -1534,7 +1529,7 @@ export default function App() {
         <DialogContent dividers>
           <Stack spacing={2}>
             <TextField autoFocus={!groupOriginalName} label="Name" value={groupDraftName} onChange={(e) => setGroupDraftName(e.target.value)} />
-            <Paper sx={sectionSx()}>
+            <Paper sx={sectionSx(colors)}>
               <SectionTitle title="Members" />
               <List dense>
                 {profiles.map((p) => {
@@ -1664,10 +1659,22 @@ export default function App() {
         <DialogTitle>Changelog</DialogTitle>
         <DialogContent dividers>
           <List dense>
-            <ListItemButton>
+            <ListItemButton sx={{ alignItems: "flex-start", py: 1.5 }}>
+              <Box>
+                <Typography fontWeight={700}>0.2.0</Typography>
+                <Typography variant="body2" color={colors.muted} component="div" sx={{ mt: 0.5 }}>
+                  <Box component="ul" sx={{ m: 0, pl: 2.25 }}>
+                    <li>Light theme and header theme toggle (dark, light, system) with moon, sun, and computer icons.</li>
+                    <li>Theme preference saved in <code>~/.fortivpngui/main.conf</code> (<code>gui/theme_mode</code>).</li>
+                    <li>FortiGate OTP: one prompt per reconnect cycle; invalid OTP offers disconnect or request a new code (no prompt loop).</li>
+                  </Box>
+                </Typography>
+              </Box>
+            </ListItemButton>
+            <ListItemButton sx={{ alignItems: "flex-start", py: 1.5 }}>
               <Box>
                 <Typography fontWeight={700}>0.1.0</Typography>
-                <Typography variant="body2" color={colors.muted}>
+                <Typography variant="body2" color={colors.muted} sx={{ mt: 0.5 }}>
                   Electron shell, OpenFortiGUI-compatible profiles/groups, Fortigate and Barracuda runners.
                 </Typography>
               </Box>

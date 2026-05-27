@@ -2,7 +2,15 @@ import fs from "fs";
 import path from "path";
 import ini from "ini";
 import { expandHome, paths, DEFAULT_AES_IV, DEFAULT_AES_KEY, toTilde } from "./config.js";
-import type { MainSettings } from "./types.js";
+import type { MainSettings, ThemeMode } from "./types.js";
+
+function parseThemeMode(raw: unknown): ThemeMode {
+  const s = String(raw ?? "")
+    .trim()
+    .toLowerCase();
+  if (s === "light" || s === "system") return s;
+  return "dark";
+}
 
 function ensureDir(d: string) {
   fs.mkdirSync(d, { recursive: true, mode: 0o755 });
@@ -28,6 +36,7 @@ function defaultMain(): MainSettings {
     disable_notifications: false,
     connect_on_dblclick: false,
     show_search: false,
+    theme_mode: "dark",
   };
 }
 
@@ -80,6 +89,7 @@ export function readMainSettings(): MainSettings {
     disable_notifications: iniBool(gui.disable_notifications),
     connect_on_dblclick: iniBool(gui.connect_on_dblclick),
     show_search: iniBool(main.show_search),
+    theme_mode: parseThemeMode(gui.theme_mode),
   };
 }
 
@@ -108,6 +118,7 @@ export function writeMainSettings(s: MainSettings): void {
     gui: {
       disable_notifications: s.disable_notifications,
       connect_on_dblclick: s.connect_on_dblclick,
+      theme_mode: s.theme_mode,
     },
   };
   fs.writeFileSync(paths.mainConf(), ini.stringify(obj), { mode: 0o600 });
