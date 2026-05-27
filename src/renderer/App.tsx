@@ -746,7 +746,6 @@ export default function App() {
       setLoginOtpPhase("awaiting_auth");
       setLoginOpen(false);
       setLoginOtp("");
-      notify("Validating one-time password…");
       return;
     }
     if (!loginUser.trim()) {
@@ -772,7 +771,6 @@ export default function App() {
     setLoginOtpPhase("awaiting_auth");
     setLoginOpen(false);
     setLoginOtp("");
-    notify("Validating one-time password…");
   };
 
   const cancelLogin = async () => {
@@ -1667,6 +1665,10 @@ export default function App() {
                     <li>Light theme and header theme toggle (dark, light, system) with moon, sun, and computer icons.</li>
                     <li>Theme preference saved in <code>~/.fortivpngui/main.conf</code> (<code>gui/theme_mode</code>).</li>
                     <li>FortiGate OTP: one prompt per reconnect cycle; invalid OTP offers disconnect or request a new code (no prompt loop).</li>
+                    <li>
+                      .deb install/upgrade: postinst stops running instances and removes <code>~/.config/fortivpngui</code> (Electron cache) so the new
+                      package loads without a reboot; VPN data in <code>~/.fortivpngui/</code> is kept.
+                    </li>
                   </Box>
                 </Typography>
               </Box>
