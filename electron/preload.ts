@@ -14,6 +14,7 @@ contextBridge.exposeInMainWorld("fvpn", {
   duplicateGroup: (name: string) => ipcRenderer.invoke("groups:duplicate", name) as Promise<string>,
   getSettings: () => ipcRenderer.invoke("settings:get") as Promise<MainSettings>,
   saveSettings: (partial: Partial<MainSettings>) => ipcRenderer.invoke("settings:save", partial) as Promise<MainSettings>,
+  getSystemLocale: () => ipcRenderer.invoke("app:getLocale") as Promise<string>,
   mergeOpenfortiguiMain: () => ipcRenderer.invoke("settings:mergeOpenfortiguiMain") as Promise<MainSettings | null>,
   startVpn: (name: string, arg?: string | VpnStartCredentials) => ipcRenderer.invoke("vpn:start", name, arg) as Promise<void>,
   stopVpn: (name: string) => ipcRenderer.invoke("vpn:stop", name) as Promise<void>,

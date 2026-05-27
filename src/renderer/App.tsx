@@ -49,6 +49,7 @@ import SearchIcon from "@mui/icons-material/Search";
 import SettingsIcon from "@mui/icons-material/Settings";
 import StopIcon from "@mui/icons-material/Stop";
 import TuneIcon from "@mui/icons-material/Tune";
+import TranslateIcon from "@mui/icons-material/Translate";
 import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
 import VpnKeyIcon from "@mui/icons-material/VpnKey";
@@ -58,7 +59,11 @@ import brandingMark from "../../build/icons/512x512.png";
 import { scheduleAfterOverlayClose } from "./scheduleAfterOverlayClose";
 import { useAppColors, useThemeMode } from "./ThemeModeProvider";
 import { ThemeToggleButton } from "./ThemeToggleButton";
+import { LanguageMenuButton } from "./LanguageMenuButton";
+import { useI18n, useTranslation } from "./I18nProvider";
+import { LanguageSelect } from "./LanguageSelect";
 import { parseThemeMode } from "../../shared/theme";
+import { parseLanguageSetting } from "../../shared/locale";
 import type { AppColors } from "./theme";
 
 type ViewId = "vpn" | "groups" | "settings";
@@ -166,10 +171,11 @@ function SectionTitle({ icon, title, action }: { icon?: React.ReactNode; title: 
 
 function StatusChip({ state }: { state: string }) {
   const colors = useAppColors();
+  const { translateStatus } = useTranslation();
   return (
     <Chip
       size="small"
-      label={state || "disconnected"}
+      label={translateStatus(state || "disconnected")}
       sx={{
         bgcolor: colors.surfaceHigh,
         color: colors.text,
@@ -191,6 +197,7 @@ function StatusChip({ state }: { state: string }) {
 export default function App() {
   const colors = useAppColors();
   const { setThemeMode } = useThemeMode();
+  const { t, setLanguage } = useI18n();
   const [view, setView] = useState<ViewId>("vpn");
   const [bootError, setBootError] = useState<string | null>(null);
   const [profiles, setProfiles] = useState<VpnProfile[]>([]);
@@ -259,7 +266,7 @@ export default function App() {
     setBootError(null);
     try {
       if (typeof window.fvpn === "undefined") {
-        throw new Error("Main process API is not available.");
+        throw new Error(t("notify.apiUnavailable"));
       }
       const [p, g, s, o] = await Promise.all([
         window.fvpn.listProfiles(),
@@ -292,6 +299,7 @@ export default function App() {
   useEffect(() => {
     if (!settings) return;
     setThemeMode(parseThemeMode(settings.theme_mode));
+    setLanguage(parseLanguageSetting(settings.language));
     setWizardAesKey(settings.aeskey);
     setWizardAesIv(settings.aesiv);
     setWizardUseStore(settings.use_system_password_store);
@@ -299,7 +307,7 @@ export default function App() {
     settingsPromptsDone.current = true;
     if (!settings.setupwizard) setWizardOpen(true);
     if (settings.changelogrev_read < CHANGELOG_REV) setChangelogOpen(true);
-  }, [settings, setThemeMode]);
+  }, [settings, setThemeMode, setLanguage]);
 
   useEffect(() => {
     return window.fvpn.onAppNavigate((ev) => {
@@ -504,7 +512,7 @@ export default function App() {
     const p = profiles.find((x) => x.name === name);
     if (!p) return;
     if (p.device_type === "fortigate" && !ofvPath) {
-      notify("openfortivpn not found in PATH.");
+      notify(t("notify.ofvNotFound"));
       return;
     }
     if (p.device_type === "fortigate" && p.always_ask_otp) {
@@ -555,7 +563,7 @@ export default function App() {
   const editProfile = (p: VpnProfile) => {
     if (p.origin === "global") return;
     if (isProfileActive(p.name)) {
-      notify("The VPN state must be disconnected to perform this action.");
+      notify(t("notify.mustDisconnect"));
       return;
     }
     setProfileDraft({ ...p });
@@ -570,19 +578,19 @@ export default function App() {
   const saveProfile = async () => {
     const name = profileDraft.name.trim();
     if (!NAME_RE.test(name)) {
-      notify("You must set a valid name for the VPN.");
+      notify(t("notify.invalidVpnName"));
       return;
     }
     if (!profileDraft.gateway_host.trim()) {
-      notify("You must set a gateway for the VPN.");
+      notify(t("notify.missingGateway"));
       return;
     }
     if (!profileDraft.gateway_port) {
-      notify("You must set a gateway-port for the VPN.");
+      notify(t("notify.missingGatewayPort"));
       return;
     }
     if (credentialsEnabled && !profileDraft.username.trim()) {
-      notify("You must set a valid username if credentials are enabled.");
+      notify(t("notify.missingUsername"));
       return;
     }
     const next: VpnProfile = {
@@ -612,15 +620,15 @@ export default function App() {
     const p = profiles.find((x) => x.name === name);
     if (!p) return;
     if (p.origin === "global") {
-      notify("Global VPN-Profiles cannot be deleted.");
+      notify(t("notify.globalProfileNoDelete"));
       return;
     }
     const st = status[name];
     if (st === "connected" || st === "connecting") {
-      notify("The VPN state must be disconnected to perform this action.");
+      notify(t("notify.mustDisconnect"));
       return;
     }
-    if (!confirm(`Warning, the selected vpn will be deleted, continue?\n\n${name}`)) return;
+    if (!confirm(t("notify.confirmDeleteVpn", { name }))) return;
     await window.fvpn.deleteProfile(name);
     if (selectedProfileName === name) setSelectedProfileName(null);
     await refresh();
@@ -629,8 +637,8 @@ export default function App() {
   const duplicateProfile = async (name: string) => {
     const p = profiles.find((x) => x.name === name);
     if (!p) return;
-    const proposed = `${p.name} copy`;
-    const newName = prompt("Enter the new VPN-profile name", proposed);
+    const proposed = `${p.name}${t("profile.copySuffix")}`;
+    const newName = prompt(t("notify.promptNewVpnName"), proposed);
     if (!newName) return;
     try {
       await window.fvpn.saveProfile({ ...p, name: newName.trim(), origin: "local" });
@@ -658,7 +666,7 @@ export default function App() {
   const saveGroup = async () => {
     const name = groupDraftName.trim();
     if (!NAME_RE.test(name)) {
-      notify("You must set a name for the VPN-group.");
+      notify(t("notify.missingGroupName"));
       return;
     }
     const localMembers: string[] = [];
@@ -667,7 +675,7 @@ export default function App() {
       const [origin, memberName] = key.split(":") as ["local" | "global", string];
       const p = profiles.find((x) => x.name === memberName && x.origin === origin);
       if (!p || !p.username || !p.password) {
-        notify(`You must set username and password for each group member. First missing on VPN: ${memberName}`);
+        notify(t("notify.groupMemberMissingCreds", { name: memberName }));
         return;
       }
       if (origin === "local") localMembers.push(memberName);
@@ -685,7 +693,7 @@ export default function App() {
   };
 
   const deleteGroup = async (name: string) => {
-    if (!confirm(`Warning, the selected vpn-group will be deleted, continue?\n\n${name}`)) return;
+    if (!confirm(t("notify.confirmDeleteGroup", { name }))) return;
     await window.fvpn.deleteGroup(name);
     if (selectedGroupName === name) setSelectedGroupName(null);
     await refresh();
@@ -705,22 +713,22 @@ export default function App() {
     for (const name of uniq([...g.localMembers, ...g.globalMembers])) {
       const p = profiles.find((x) => x.name === name);
       if (!p) {
-        logGroupLine(`[group "${g.name}"] Member profile not found: ${name}`);
+        logGroupLine(t("log.groupMemberNotFound", { group: g.name, name }));
         continue;
       }
       if (p.device_type === "fortigate" && !ofvPath) {
-        logGroupLine(`[group "${g.name}"] Skipping ${name} (openfortivpn not found).`);
+        logGroupLine(t("log.groupSkipOfv", { group: g.name, name }));
         continue;
       }
       if (p.always_ask_otp) {
-        logGroupLine(`[group "${g.name}"] Skipping ${name} (interactive OTP required).`);
+        logGroupLine(t("log.groupSkipOtp", { group: g.name, name }));
         continue;
       }
       if (status[name] === "connected" || status[name] === "connecting") continue;
       try {
         await window.fvpn.startVpn(name);
       } catch (e) {
-        logGroupLine(`[group "${g.name}"] connect failed for ${name}: ${(e as Error).message}`);
+        logGroupLine(t("log.groupConnectFailed", { group: g.name, name, message: (e as Error).message }));
       }
       await new Promise((r) => setTimeout(r, 400));
     }
@@ -734,12 +742,12 @@ export default function App() {
     if (!loginTarget || !loginKind) return;
     if (loginKind === "challenge" && loginOtpViaStdin) {
       if (!loginOtp.trim()) {
-        notify("Enter the one-time password.");
+        notify(t("notify.enterOtp"));
         return;
       }
       const ok = await window.fvpn.submitFortigateStdinOtp(loginTarget, loginOtp.trim());
       if (!ok) {
-        notify("Could not send the token (no active VPN process for this profile).");
+        notify(t("notify.tokenSendFailed"));
         return;
       }
       fortigateLastConnectHadOtp.current[loginTarget] = true;
@@ -749,15 +757,15 @@ export default function App() {
       return;
     }
     if (!loginUser.trim()) {
-      notify("This VPN profile has no username. Edit the profile and set credentials.");
+      notify(t("notify.profileNoUsername"));
       return;
     }
     if (loginKind === "always" && !loginOtp.trim()) {
-      notify("Enter the one-time password.");
+      notify(t("notify.enterOtp"));
       return;
     }
     if (loginKind === "challenge" && loginChallengeExplicitOtp && !loginOtp.trim()) {
-      notify("Enter the one-time password.");
+      notify(t("notify.enterOtp"));
       return;
     }
     if (loginOtp.trim()) fortigateLastConnectHadOtp.current[loginTarget] = true;
@@ -826,22 +834,22 @@ export default function App() {
       const r = await window.fvpn.importOpenfortigui();
       await refresh();
       setImportResultText(
-        `Imported ${r.profilesCopied} profiles, ${r.groupsCopied} groups.${r.errors.length ? `\n\nErrors:\n${r.errors.join("\n")}` : ""}`
+        `${t("import.result", { profiles: r.profilesCopied, groups: r.groupsCopied })}${r.errors.length ? `\n\n${t("import.errorsHeader")}\n${r.errors.join("\n")}` : ""}`
       );
     } catch (e) {
-      setImportResultText(`Import failed:\n\n${e instanceof Error ? e.message : String(e)}`);
+      setImportResultText(`${t("import.failed")}\n\n${e instanceof Error ? e.message : String(e)}`);
     }
   };
 
   const mergeOfgMain = async () => {
     const next = await window.fvpn.mergeOpenfortiguiMain();
-    if (!next) notify("No ~/.openfortigui/main.conf or no mappable keys found.");
+    if (!next) notify(t("notify.noOfgMain"));
     else setSettings(next);
   };
 
   const finishWizard = async () => {
     if (wizardAesKey.length !== 16 || wizardAesIv.length !== 16) {
-      notify("Both AES-Key and AES-IV must be 128bit (16 chars) long.");
+      notify(t("notify.aesKeyIvLength"));
       return;
     }
     await saveSettingsUi({ aeskey: wizardAesKey, aesiv: wizardAesIv, use_system_password_store: wizardUseStore, setupwizard: true });
@@ -878,7 +886,7 @@ export default function App() {
           {bootError}
         </Alert>
         <Button variant="contained" onClick={() => void refresh()}>
-          Try again
+          {t("common.tryAgain")}
         </Button>
       </Box>
     );
@@ -887,7 +895,7 @@ export default function App() {
   if (!settings) {
     return (
       <Box p={2} bgcolor={colors.background} minHeight="100vh">
-        <Typography>Loading...</Typography>
+        <Typography>{t("common.loading")}</Typography>
       </Box>
     );
   }
@@ -899,19 +907,19 @@ export default function App() {
       <SectionTitle
         icon={<VpnKeyIcon fontSize="small" sx={{ color: colors.primary }} />}
         title={title}
-        action={<Chip size="small" label={`${items.length} profiles`} sx={{ bgcolor: colors.surfaceHigh, color: colors.muted }} />}
+        action={<Chip size="small" label={t("table.profileCount", { count: items.length })} sx={{ bgcolor: colors.surfaceHigh, color: colors.muted }} />}
       />
       <TableContainer sx={{ overflowX: "auto" }}>
         <Table size="small" sx={{ minWidth: 820 }}>
           <TableHead>
             <TableRow>
-              <TableCell>Status</TableCell>
-              <TableCell>Name</TableCell>
-              <TableCell>Device</TableCell>
-              <TableCell>Gateway</TableCell>
-              <TableCell>User</TableCell>
-              <TableCell>Traffic RX/TX</TableCell>
-              <TableCell align="right">Actions</TableCell>
+              <TableCell>{t("table.status")}</TableCell>
+              <TableCell>{t("table.name")}</TableCell>
+              <TableCell>{t("table.device")}</TableCell>
+              <TableCell>{t("table.gateway")}</TableCell>
+              <TableCell>{t("table.user")}</TableCell>
+              <TableCell>{t("table.traffic")}</TableCell>
+              <TableCell align="right">{t("table.actions")}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -942,7 +950,7 @@ export default function App() {
                   </TableCell>
                   <TableCell sx={{ fontWeight: 700 }}>{p.name}</TableCell>
                   <TableCell>
-                    <Chip size="small" label={p.device_type === "fortigate" ? "Fortigate" : "Barracuda"} />
+                    <Chip size="small" label={p.device_type === "fortigate" ? t("device.fortigate") : t("device.barracuda")} />
                   </TableCell>
                   <TableCell sx={{ fontFamily: "JetBrains Mono, monospace" }}>
                     {p.gateway_host}:{p.gateway_port}
@@ -952,7 +960,7 @@ export default function App() {
                     {formatBytes(traffic?.bytes_read)} / {formatBytes(traffic?.bytes_written)}
                   </TableCell>
                   <TableCell align="right">
-                    <Tooltip title={active ? "Disconnect" : "Connect"}>
+                    <Tooltip title={active ? t("toolbar.disconnect") : t("toolbar.connect")}>
                       <IconButton
                         size="small"
                         color={active ? "error" : "primary"}
@@ -962,19 +970,19 @@ export default function App() {
                         {active ? <StopIcon fontSize="small" /> : <PlayArrowIcon fontSize="small" />}
                       </IconButton>
                     </Tooltip>
-                    <Tooltip title="Edit">
+                    <Tooltip title={t("toolbar.edit")}>
                       <span>
                         <IconButton size="small" disabled={p.origin === "global" || active} onClick={() => editProfile(p)}>
                           <EditIcon fontSize="small" />
                         </IconButton>
                       </span>
                     </Tooltip>
-                    <Tooltip title="Copy">
+                    <Tooltip title={t("toolbar.copy")}>
                       <IconButton size="small" onClick={() => void duplicateProfile(p.name)}>
                         <ContentCopyIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
-                    <Tooltip title="Delete">
+                    <Tooltip title={t("toolbar.delete")}>
                       <span>
                         <IconButton size="small" disabled={p.origin === "global" || active} onClick={() => void deleteProfile(p.name)}>
                           <DeleteIcon fontSize="small" />
@@ -1026,9 +1034,9 @@ export default function App() {
         </Box>
         <Stack px={1} spacing={0.25}>
           {[
-            ["vpn", "VPN", <VpnKeyIcon />],
-            ["groups", "VPN-Groups", <GroupWorkIcon />],
-            ["settings", "Settings", <SettingsIcon />],
+            ["vpn", t("nav.vpn"), <VpnKeyIcon />],
+            ["groups", t("nav.groups"), <GroupWorkIcon />],
+            ["settings", t("nav.settings"), <SettingsIcon />],
           ].map(([id, label, icon]) => (
             <ListItemButton
               key={id as string}
@@ -1056,7 +1064,7 @@ export default function App() {
         <Stack px={1} spacing={0.25}>
           <ListItemButton sx={{ borderRadius: 1.5, minHeight: 32, py: 0.25, px: 1, color: colors.muted }} onClick={() => setAboutOpen(true)}>
             <InfoIcon sx={{ mr: 1, fontSize: 19 }} />
-            <Typography variant="body2">About</Typography>
+            <Typography variant="body2">{t("nav.about")}</Typography>
           </ListItemButton>
         </Stack>
       </Box>
@@ -1075,15 +1083,16 @@ export default function App() {
           gap={1}
         >
           <Typography variant="h6" fontWeight={800} flex={1}>
-            {view === "vpn" ? "VPN Profiles" : view === "groups" ? "VPN Groups" : "Settings"}
+            {view === "vpn" ? t("header.vpnProfiles") : view === "groups" ? t("header.vpnGroups") : t("header.settings")}
           </Typography>
+          <LanguageMenuButton />
           <ThemeToggleButton />
-          <Tooltip title="Changelog">
+          <Tooltip title={t("toolbar.changelog")}>
             <IconButton onClick={() => setChangelogOpen(true)}>
               <ArticleIcon />
             </IconButton>
           </Tooltip>
-          <Tooltip title="Refresh">
+          <Tooltip title={t("toolbar.refresh")}>
             <IconButton onClick={() => void refresh()}>
               <RefreshIcon />
             </IconButton>
@@ -1092,7 +1101,7 @@ export default function App() {
 
         {!ofvPath && (
           <Alert severity="error" sx={{ m: 2 }}>
-            openfortivpn not found in PATH. Fortigate profiles require it.
+            {t("alert.ofvNotFound")}
           </Alert>
         )}
 
@@ -1106,17 +1115,17 @@ export default function App() {
                 onClick={toolbarConnectionToggle}
                 disabled={view === "vpn" ? !selectedProfile : !selectedGroup}
               >
-                {selectedConnectionActive ? "Disconnect" : "Connect"}
+                {selectedConnectionActive ? t("toolbar.disconnect") : t("toolbar.connect")}
               </Button>
               <Divider orientation="vertical" flexItem />
               <Button startIcon={<AddIcon />} onClick={(e) => setAddMenuAnchor(e.currentTarget)}>
-                Add
+                {t("toolbar.add")}
               </Button>
               <Button startIcon={<EditIcon />} onClick={toolbarEdit} disabled={view === "vpn" ? !selectedProfile || selectedProfile.origin === "global" || isProfileActive(selectedProfile.name) : !selectedGroup}>
-                Edit
+                {t("toolbar.edit")}
               </Button>
               <Button startIcon={<ContentCopyIcon />} onClick={toolbarCopy} disabled={view === "vpn" ? !selectedProfile : !selectedGroup}>
-                Copy
+                {t("toolbar.copy")}
               </Button>
               <Button
                 startIcon={<SearchIcon />}
@@ -1124,11 +1133,11 @@ export default function App() {
                 disabled={view !== "vpn"}
                 sx={{ color: settings.show_search ? colors.primary : undefined }}
               >
-                Search
+                {t("toolbar.search")}
               </Button>
               <Divider orientation="vertical" flexItem />
               <Button startIcon={<DeleteIcon />} onClick={toolbarDelete} disabled={view === "vpn" ? !selectedProfile || selectedProfile.origin === "global" || isProfileActive(selectedProfile.name) : !selectedGroup} color="error">
-                Delete
+                {t("toolbar.delete")}
               </Button>
               <Button
                 startIcon={<FolderOpenIcon />}
@@ -1138,7 +1147,7 @@ export default function App() {
                   else if (view === "groups" && selectedGroup) void window.fvpn.openLogsDir();
                 }}
               >
-                Logs
+                {t("toolbar.logs")}
               </Button>
             </Stack>
           )}
@@ -1148,28 +1157,28 @@ export default function App() {
               {settings.show_search && (
                 <TextField
                   size="small"
-                  placeholder="Search profiles"
+                  placeholder={t("profile.searchPlaceholder")}
                   value={profileFilter}
                   onChange={(e) => setProfileFilter(e.target.value)}
                   InputProps={{ startAdornment: <SearchIcon fontSize="small" sx={{ mr: 1, color: colors.muted }} /> }}
                 />
               )}
-              {renderProfileTable("Local VPNs", localProfiles)}
-              {renderProfileTable("Global VPNs", globalProfiles)}
+              {renderProfileTable(t("profile.localTitle"), localProfiles)}
+              {renderProfileTable(t("profile.globalTitle"), globalProfiles)}
             </Stack>
           )}
 
           {view === "groups" && (
             <Paper sx={sectionSx(colors)}>
-              <SectionTitle icon={<GroupWorkIcon fontSize="small" sx={{ color: colors.primary }} />} title="VPN-Groups" />
+              <SectionTitle icon={<GroupWorkIcon fontSize="small" sx={{ color: colors.primary }} />} title={t("group.title")} />
               <TableContainer sx={{ overflowX: "auto" }}>
                 <Table size="small" sx={{ minWidth: 680 }}>
                   <TableHead>
                     <TableRow>
-                      <TableCell>Status</TableCell>
-                      <TableCell>Name</TableCell>
-                      <TableCell>VPNs</TableCell>
-                      <TableCell align="right">Actions</TableCell>
+                      <TableCell>{t("table.status")}</TableCell>
+                      <TableCell>{t("table.name")}</TableCell>
+                      <TableCell>{t("table.vpns")}</TableCell>
+                      <TableCell align="right">{t("table.actions")}</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -1208,24 +1217,36 @@ export default function App() {
           {view === "settings" && (
             <Stack spacing={2} maxWidth={920}>
               <Paper sx={sectionSx(colors)}>
-                <SectionTitle icon={<SettingsIcon fontSize="small" sx={{ color: colors.primary }} />} title="Main" />
-                <Stack p={2} spacing={1.5}>
-                  <FormControlLabel control={<Checkbox checked={settings.debug} onChange={(_, c) => void saveSettingsUi({ debug: c })} />} label="Debug" />
-                  <FormControlLabel control={<Checkbox checked={settings.use_system_password_store} onChange={(_, c) => void saveSettingsUi({ use_system_password_store: c })} />} label="Password Manager" />
-                  <TextField label="AES-Key" value={settings.aeskey} disabled={settings.use_system_password_store} onChange={(e) => setSettings({ ...settings, aeskey: e.target.value })} onBlur={() => void saveSettingsUi({ aeskey: settings.aeskey })} />
-                  <TextField label="AES-IV" value={settings.aesiv} disabled={settings.use_system_password_store} onChange={(e) => setSettings({ ...settings, aesiv: e.target.value })} onBlur={() => void saveSettingsUi({ aesiv: settings.aesiv })} />
-                  <FormControlLabel control={<Checkbox checked={settings.sudo_preserve_env} onChange={(_, c) => void saveSettingsUi({ sudo_preserve_env: c })} />} label="SUDO Preserve Env." />
-                  <FormControlLabel control={<Checkbox checked={settings.disallow_unsecure_certificates} onChange={(_, c) => void saveSettingsUi({ disallow_unsecure_certificates: c })} />} label="Disallow insecure certificates" />
+                <SectionTitle icon={<TranslateIcon fontSize="small" sx={{ color: colors.primary }} />} title={t("settings.language")} />
+                <Stack p={2}>
+                  <LanguageSelect
+                    value={parseLanguageSetting(settings.language)}
+                    onChange={(language) => {
+                      setLanguage(language);
+                      void saveSettingsUi({ language });
+                    }}
+                  />
                 </Stack>
               </Paper>
               <Paper sx={sectionSx(colors)}>
-                <SectionTitle icon={<FolderOpenIcon fontSize="small" sx={{ color: colors.primary }} />} title="Paths" />
+                <SectionTitle icon={<SettingsIcon fontSize="small" sx={{ color: colors.primary }} />} title={t("settings.main")} />
+                <Stack p={2} spacing={1.5}>
+                  <FormControlLabel control={<Checkbox checked={settings.debug} onChange={(_, c) => void saveSettingsUi({ debug: c })} />} label={t("settings.debug")} />
+                  <FormControlLabel control={<Checkbox checked={settings.use_system_password_store} onChange={(_, c) => void saveSettingsUi({ use_system_password_store: c })} />} label={t("settings.passwordManager")} />
+                  <TextField label={t("settings.aesKey")} value={settings.aeskey} disabled={settings.use_system_password_store} onChange={(e) => setSettings({ ...settings, aeskey: e.target.value })} onBlur={() => void saveSettingsUi({ aeskey: settings.aeskey })} />
+                  <TextField label={t("settings.aesIv")} value={settings.aesiv} disabled={settings.use_system_password_store} onChange={(e) => setSettings({ ...settings, aesiv: e.target.value })} onBlur={() => void saveSettingsUi({ aesiv: settings.aesiv })} />
+                  <FormControlLabel control={<Checkbox checked={settings.sudo_preserve_env} onChange={(_, c) => void saveSettingsUi({ sudo_preserve_env: c })} />} label={t("settings.sudoPreserveEnv")} />
+                  <FormControlLabel control={<Checkbox checked={settings.disallow_unsecure_certificates} onChange={(_, c) => void saveSettingsUi({ disallow_unsecure_certificates: c })} />} label={t("settings.disallowInsecureCerts")} />
+                </Stack>
+              </Paper>
+              <Paper sx={sectionSx(colors)}>
+                <SectionTitle icon={<FolderOpenIcon fontSize="small" sx={{ color: colors.primary }} />} title={t("settings.paths")} />
                 <Stack p={2} spacing={1.5}>
                   {[
-                    ["localvpnprofiles", "Local VPN-Profiles"],
-                    ["localvpngroups", "Local VPN-Groups"],
-                    ["globalvpnprofiles", "Global VPN-Profiles"],
-                    ["logs", "Logs"],
+                    ["localvpnprofiles", t("settings.localVpnProfiles")],
+                    ["localvpngroups", t("settings.localVpnGroups")],
+                    ["globalvpnprofiles", t("settings.globalVpnProfiles")],
+                    ["logs", t("settings.logs")],
                   ].map(([key, label]) => (
                     <TextField
                       key={key}
@@ -1247,21 +1268,21 @@ export default function App() {
                 </Stack>
               </Paper>
               <Paper sx={sectionSx(colors)}>
-                <SectionTitle icon={<TuneIcon fontSize="small" sx={{ color: colors.primary }} />} title="GUI" />
+                <SectionTitle icon={<TuneIcon fontSize="small" sx={{ color: colors.primary }} />} title={t("settings.gui")} />
                 <Stack p={2} spacing={1}>
-                  <FormControlLabel control={<Checkbox checked={settings.start_minimized} onChange={(_, c) => void saveSettingsUi({ start_minimized: c })} />} label="Start minimized" />
-                  <FormControlLabel control={<Checkbox checked={settings.disable_notifications} onChange={(_, c) => void saveSettingsUi({ disable_notifications: c })} />} label="Disable notifications" />
-                  <FormControlLabel control={<Checkbox checked={settings.connect_on_dblclick} onChange={(_, c) => void saveSettingsUi({ connect_on_dblclick: c })} />} label="Connect on double-click" />
-                  <FormControlLabel control={<Checkbox checked={settings.show_search} onChange={(_, c) => void saveSettingsUi({ show_search: c })} />} label="Show search" />
+                  <FormControlLabel control={<Checkbox checked={settings.start_minimized} onChange={(_, c) => void saveSettingsUi({ start_minimized: c })} />} label={t("settings.startMinimized")} />
+                  <FormControlLabel control={<Checkbox checked={settings.disable_notifications} onChange={(_, c) => void saveSettingsUi({ disable_notifications: c })} />} label={t("settings.disableNotifications")} />
+                  <FormControlLabel control={<Checkbox checked={settings.connect_on_dblclick} onChange={(_, c) => void saveSettingsUi({ connect_on_dblclick: c })} />} label={t("settings.connectOnDblclick")} />
+                  <FormControlLabel control={<Checkbox checked={settings.show_search} onChange={(_, c) => void saveSettingsUi({ show_search: c })} />} label={t("settings.showSearch")} />
                   <Typography variant="body2" color={colors.muted}>
-                    Theme: {settings.theme_mode} (header icon cycles dark → light → system; stored in main.conf)
+                    {t("settings.themeHint", { mode: settings.theme_mode })}
                   </Typography>
                   <Stack direction="row" gap={1}>
                     <Button variant="outlined" onClick={() => void mergeOfgMain()}>
-                      Merge OpenFortiGUI main.conf
+                      {t("settings.mergeOfgMain")}
                     </Button>
                     <Button variant="outlined" onClick={() => void runImport()}>
-                      Import OpenFortiGUI profiles/groups
+                      {t("settings.importOfg")}
                     </Button>
                   </Stack>
                 </Stack>
@@ -1284,7 +1305,7 @@ export default function App() {
             scheduleAfterOverlayClose(() => openNewProfile());
           }}
         >
-          VPN
+          {t("menu.vpn")}
         </MenuItem>
         <MenuItem
           onClick={() => {
@@ -1292,7 +1313,7 @@ export default function App() {
             scheduleAfterOverlayClose(() => openNewGroup());
           }}
         >
-          VPN-Group
+          {t("menu.vpnGroup")}
         </MenuItem>
       </Menu>
 
@@ -1311,7 +1332,7 @@ export default function App() {
             if (name) scheduleAfterOverlayClose(() => void startVpnFlow(name));
           }}
         >
-          Connect
+          {t("menu.connect")}
         </MenuItem>
         <MenuItem
           onClick={() => {
@@ -1320,7 +1341,7 @@ export default function App() {
             if (name) void stopVpn(name);
           }}
         >
-          Disconnect
+          {t("menu.disconnect")}
         </MenuItem>
         <Divider />
         <MenuItem
@@ -1331,7 +1352,7 @@ export default function App() {
             if (p) scheduleAfterOverlayClose(() => editProfile(p));
           }}
         >
-          Edit
+          {t("toolbar.edit")}
         </MenuItem>
         <MenuItem
           onClick={() => {
@@ -1340,7 +1361,7 @@ export default function App() {
             if (name) scheduleAfterOverlayClose(() => void duplicateProfile(name));
           }}
         >
-          Copy
+          {t("toolbar.copy")}
         </MenuItem>
         <MenuItem
           disabled={profiles.find((p) => p.name === profileCtx?.name)?.origin === "global" || Boolean(profileCtx?.name && isProfileActive(profileCtx.name))}
@@ -1350,7 +1371,7 @@ export default function App() {
             if (name) scheduleAfterOverlayClose(() => void deleteProfile(name));
           }}
         >
-          Delete
+          {t("toolbar.delete")}
         </MenuItem>
         <Divider />
         <MenuItem
@@ -1360,62 +1381,62 @@ export default function App() {
             if (name) scheduleAfterOverlayClose(() => void window.fvpn.openVpnLog(name));
           }}
         >
-          View logs
+          {t("menu.viewLogs")}
         </MenuItem>
       </Menu>
 
       <Dialog open={profileOpen} onClose={() => setProfileOpen(false)} maxWidth="md" fullWidth scroll="paper">
         <DialogTitle display="flex" alignItems="center" gap={1}>
           <EditIcon sx={{ color: colors.primary }} />
-          {profileOriginalName ? `Edit VPN - ${profileOriginalName}` : "Add VPN"}
+          {profileOriginalName ? t("editor.editVpn", { name: profileOriginalName }) : t("editor.addVpn")}
           <Box flex={1} />
           <IconButton onClick={() => setProfileOpen(false)}>
             <CloseIcon />
           </IconButton>
         </DialogTitle>
         <Tabs value={profileEditorTab} onChange={(_, v) => setProfileEditorTab(v)} sx={{ px: 3 }}>
-          <Tab icon={<TuneIcon />} iconPosition="start" label="VPN-Preferences" />
-          <Tab icon={<SettingsIcon />} iconPosition="start" label="Options" />
+          <Tab icon={<TuneIcon />} iconPosition="start" label={t("editor.preferences")} />
+          <Tab icon={<SettingsIcon />} iconPosition="start" label={t("editor.options")} />
         </Tabs>
         <DialogContent dividers>
           {profileDraft.device_type === "barracuda" && (
             <Alert severity="info" sx={{ mb: 2 }}>
-              Barracuda uses gateway, username, password, and debug. With &quot;Always ask for OTP&quot;, the token is sent on stdin (like a terminal); set &quot;OTP prompt string&quot; if the default detection does not match your client output. Fortigate certificate and other options are stored but not sent to barracudavpn.
+              {t("editor.barracudaInfo")}
             </Alert>
           )}
           {profileEditorTab === 0 ? (
             <Stack spacing={2}>
               <Paper sx={sectionSx(colors)}>
-                <SectionTitle icon={<TuneIcon fontSize="small" sx={{ color: colors.primary }} />} title="Common" />
+                <SectionTitle icon={<TuneIcon fontSize="small" sx={{ color: colors.primary }} />} title={t("editor.common")} />
                 <Stack p={2} spacing={2}>
                   <TextField
                     autoFocus={!profileOriginalName}
-                    label="Name"
+                    label={t("table.name")}
                     value={profileDraft.name}
                     onChange={(e) => setProfileDraft({ ...profileDraft, name: e.target.value })}
                   />
                   <Stack direction={{ xs: "column", sm: "row" }} gap={2}>
-                    <TextField label="VPN-Server" fullWidth value={profileDraft.gateway_host} onChange={(e) => setProfileDraft({ ...profileDraft, gateway_host: e.target.value })} />
+                    <TextField label={t("editor.vpnServer")} fullWidth value={profileDraft.gateway_host} onChange={(e) => setProfileDraft({ ...profileDraft, gateway_host: e.target.value })} />
                     <Select value={profileDraft.device_type} onChange={(e) => setProfileDraft({ ...profileDraft, device_type: e.target.value as VpnProfile["device_type"] })} sx={{ minWidth: 180 }}>
-                      <MenuItem value="fortigate">Fortigate</MenuItem>
-                      <MenuItem value="barracuda">Barracuda</MenuItem>
+                      <MenuItem value="fortigate">{t("device.fortigate")}</MenuItem>
+                      <MenuItem value="barracuda">{t("device.barracuda")}</MenuItem>
                     </Select>
-                    <TextField label="VPN-Port" type="number" value={profileDraft.gateway_port} onChange={(e) => setProfileDraft({ ...profileDraft, gateway_port: Number.parseInt(e.target.value, 10) || 10443 })} sx={{ maxWidth: 140 }} />
+                    <TextField label={t("editor.vpnPort")} type="number" value={profileDraft.gateway_port} onChange={(e) => setProfileDraft({ ...profileDraft, gateway_port: Number.parseInt(e.target.value, 10) || 10443 })} sx={{ maxWidth: 140 }} />
                   </Stack>
-                  <FormControlLabel control={<Checkbox checked={profileDraft.persistent} onChange={(_, c) => setProfileDraft({ ...profileDraft, persistent: c })} />} label="Reconnect on disconnect" />
+                  <FormControlLabel control={<Checkbox checked={profileDraft.persistent} onChange={(_, c) => setProfileDraft({ ...profileDraft, persistent: c })} />} label={t("editor.reconnectOnDisconnect")} />
                 </Stack>
               </Paper>
               <Paper sx={sectionSx(colors)}>
                 <SectionTitle
                   icon={<VpnKeyIcon fontSize="small" sx={{ color: colors.primary }} />}
-                  title="Credentials"
-                  action={<FormControlLabel control={<Checkbox checked={credentialsEnabled} onChange={(_, c) => setCredentialsEnabled(c)} />} label="Enabled" />}
+                  title={t("editor.credentials")}
+                  action={<FormControlLabel control={<Checkbox checked={credentialsEnabled} onChange={(_, c) => setCredentialsEnabled(c)} />} label={t("common.enabled")} />}
                 />
                 <Stack p={2} spacing={2}>
-                  <TextField disabled={!credentialsEnabled} label="Username" value={profileDraft.username} onChange={(e) => setProfileDraft({ ...profileDraft, username: e.target.value })} />
+                  <TextField disabled={!credentialsEnabled} label={t("editor.username")} value={profileDraft.username} onChange={(e) => setProfileDraft({ ...profileDraft, username: e.target.value })} />
                   <TextField
                     disabled={!credentialsEnabled}
-                    label="Password"
+                    label={t("editor.password")}
                     type={showProfilePassword ? "text" : "password"}
                     value={profileDraft.password}
                     onChange={(e) => setProfileDraft({ ...profileDraft, password: e.target.value })}
@@ -1433,20 +1454,20 @@ export default function App() {
               </Paper>
               <Paper sx={sectionSx(colors)}>
                 <SectionTitle
-                  title="Certificate"
-                  action={<FormControlLabel control={<Checkbox checked={certificateEnabled} disabled={certLocked && profileDraft.device_type === "fortigate"} onChange={(_, c) => setCertificateEnabled(c)} />} label="Enabled" />}
+                  title={t("editor.certificate")}
+                  action={<FormControlLabel control={<Checkbox checked={certificateEnabled} disabled={certLocked && profileDraft.device_type === "fortigate"} onChange={(_, c) => setCertificateEnabled(c)} />} label={t("common.enabled")} />}
                 />
                 <Stack p={2} spacing={2}>
-                  <TextField disabled={!certificateEnabled || (certLocked && profileDraft.device_type === "fortigate")} label="User-Certificate" value={profileDraft.user_cert} onChange={(e) => setProfileDraft({ ...profileDraft, user_cert: e.target.value })} />
-                  <TextField disabled={!certificateEnabled || (certLocked && profileDraft.device_type === "fortigate")} label="User-Key" value={profileDraft.user_key} onChange={(e) => setProfileDraft({ ...profileDraft, user_key: e.target.value })} />
-                  <TextField disabled={!certificateEnabled || (certLocked && profileDraft.device_type === "fortigate")} label="CA-File" value={profileDraft.ca_file} onChange={(e) => setProfileDraft({ ...profileDraft, ca_file: e.target.value })} />
+                  <TextField disabled={!certificateEnabled || (certLocked && profileDraft.device_type === "fortigate")} label={t("editor.userCert")} value={profileDraft.user_cert} onChange={(e) => setProfileDraft({ ...profileDraft, user_cert: e.target.value })} />
+                  <TextField disabled={!certificateEnabled || (certLocked && profileDraft.device_type === "fortigate")} label={t("editor.userKey")} value={profileDraft.user_key} onChange={(e) => setProfileDraft({ ...profileDraft, user_key: e.target.value })} />
+                  <TextField disabled={!certificateEnabled || (certLocked && profileDraft.device_type === "fortigate")} label={t("editor.caFile")} value={profileDraft.ca_file} onChange={(e) => setProfileDraft({ ...profileDraft, ca_file: e.target.value })} />
                 </Stack>
               </Paper>
               <Paper sx={sectionSx(colors)}>
-                <SectionTitle title="Fortigate Gateway Validation" />
+                <SectionTitle title={t("editor.gwValidation")} />
                 <Stack p={2} spacing={2}>
-                  <FormControlLabel control={<Checkbox disabled={certLocked && profileDraft.device_type === "fortigate"} checked={profileDraft.trust_all_gw_certs} onChange={(_, c) => setProfileDraft({ ...profileDraft, trust_all_gw_certs: c })} />} label="Trust all Certs" />
-                  <TextField disabled={certLocked && profileDraft.device_type === "fortigate"} label="Trusted-Cert (SHA256)" value={profileDraft.trusted_cert} onChange={(e) => setProfileDraft({ ...profileDraft, trusted_cert: e.target.value })} />
+                  <FormControlLabel control={<Checkbox disabled={certLocked && profileDraft.device_type === "fortigate"} checked={profileDraft.trust_all_gw_certs} onChange={(_, c) => setProfileDraft({ ...profileDraft, trust_all_gw_certs: c })} />} label={t("editor.trustAllCerts")} />
+                  <TextField disabled={certLocked && profileDraft.device_type === "fortigate"} label={t("editor.trustedCert")} value={profileDraft.trusted_cert} onChange={(e) => setProfileDraft({ ...profileDraft, trusted_cert: e.target.value })} />
                   <Button
                     size="small"
                     variant="outlined"
@@ -1457,7 +1478,7 @@ export default function App() {
                       setProfileDraft({ ...profileDraft, trusted_cert: cur ? `${cur} ${suggestedTrustedDigest}` : suggestedTrustedDigest });
                     }}
                   >
-                    Use latest digest from logs
+                    {t("editor.useLatestDigest")}
                   </Button>
                 </Stack>
               </Paper>
@@ -1465,47 +1486,47 @@ export default function App() {
           ) : (
             <Stack spacing={2}>
               <Paper sx={sectionSx(colors)}>
-                <SectionTitle title="Advanced" />
+                <SectionTitle title={t("editor.advanced")} />
                 <Stack p={2} spacing={1}>
-                  <FormControlLabel control={<Checkbox checked={profileDraft.autostart} onChange={(_, c) => setProfileDraft({ ...profileDraft, autostart: c })} />} label="Connect on program start" />
-                  <FormControlLabel control={<Checkbox checked={profileDraft.set_routes} onChange={(_, c) => setProfileDraft({ ...profileDraft, set_routes: c })} />} label="Set routes" />
-                  <FormControlLabel control={<Checkbox checked={profileDraft.half_internet_routers} onChange={(_, c) => setProfileDraft({ ...profileDraft, half_internet_routers: c })} />} label="Half internet routes" />
-                  <FormControlLabel control={<Checkbox checked={profileDraft.set_dns} onChange={(_, c) => setProfileDraft({ ...profileDraft, set_dns: c })} />} label="Set DNS" />
-                  <FormControlLabel control={<Checkbox checked={profileDraft.debug} onChange={(_, c) => setProfileDraft({ ...profileDraft, debug: c })} />} label="Debug" />
-                  <TextField label="Realm" value={profileDraft.realm} onChange={(e) => setProfileDraft({ ...profileDraft, realm: e.target.value })} />
+                  <FormControlLabel control={<Checkbox checked={profileDraft.autostart} onChange={(_, c) => setProfileDraft({ ...profileDraft, autostart: c })} />} label={t("editor.connectOnStart")} />
+                  <FormControlLabel control={<Checkbox checked={profileDraft.set_routes} onChange={(_, c) => setProfileDraft({ ...profileDraft, set_routes: c })} />} label={t("editor.setRoutes")} />
+                  <FormControlLabel control={<Checkbox checked={profileDraft.half_internet_routers} onChange={(_, c) => setProfileDraft({ ...profileDraft, half_internet_routers: c })} />} label={t("editor.halfInternetRoutes")} />
+                  <FormControlLabel control={<Checkbox checked={profileDraft.set_dns} onChange={(_, c) => setProfileDraft({ ...profileDraft, set_dns: c })} />} label={t("editor.setDns")} />
+                  <FormControlLabel control={<Checkbox checked={profileDraft.debug} onChange={(_, c) => setProfileDraft({ ...profileDraft, debug: c })} />} label={t("settings.debug")} />
+                  <TextField label={t("editor.realm")} value={profileDraft.realm} onChange={(e) => setProfileDraft({ ...profileDraft, realm: e.target.value })} />
                   <TextField
-                    label="OTP prompt string"
+                    label={t("editor.otpPrompt")}
                     value={profileDraft.otp_prompt}
                     onChange={(e) => setProfileDraft({ ...profileDraft, otp_prompt: e.target.value })}
-                    helperText="When non-empty, stdin OTP opens if a log line matches (plain substring or JavaScript regex). When empty, OpenFortiGUI-style defaults apply (e.g. “Please”, “Two-factor authentication”, “one-time password”). Used for Fortigate and Barracuda."
+                    helperText={t("editor.otpPromptHelp")}
                     fullWidth
                   />
-                  <FormControlLabel control={<Checkbox checked={profileDraft.always_ask_otp} onChange={(_, c) => setProfileDraft({ ...profileDraft, always_ask_otp: c })} />} label="Always ask for OTP" />
-                  <TextField label="OTP delay" type="number" value={profileDraft.otp_delay} onChange={(e) => setProfileDraft({ ...profileDraft, otp_delay: Number.parseInt(e.target.value, 10) || 0 })} />
-                  <FormControlLabel control={<Checkbox checked={profileDraft.no_ftm_push} onChange={(_, c) => setProfileDraft({ ...profileDraft, no_ftm_push: c })} />} label="No FortiToken Mobile push" />
+                  <FormControlLabel control={<Checkbox checked={profileDraft.always_ask_otp} onChange={(_, c) => setProfileDraft({ ...profileDraft, always_ask_otp: c })} />} label={t("editor.alwaysAskOtp")} />
+                  <TextField label={t("editor.otpDelay")} type="number" value={profileDraft.otp_delay} onChange={(e) => setProfileDraft({ ...profileDraft, otp_delay: Number.parseInt(e.target.value, 10) || 0 })} />
+                  <FormControlLabel control={<Checkbox checked={profileDraft.no_ftm_push} onChange={(_, c) => setProfileDraft({ ...profileDraft, no_ftm_push: c })} />} label={t("editor.noFtmPush")} />
                 </Stack>
               </Paper>
               <Paper sx={sectionSx(colors)}>
-                <SectionTitle title="PPPD" />
+                <SectionTitle title={t("editor.pppd")} />
                 <Stack p={2} spacing={1.5}>
-                  <FormControlLabel control={<Checkbox checked={profileDraft.pppd_no_peerdns} onChange={(_, c) => setProfileDraft({ ...profileDraft, pppd_no_peerdns: c })} />} label="No peerdns" />
-                  <FormControlLabel control={<Checkbox checked={profileDraft.pppd_accept_remote} onChange={(_, c) => setProfileDraft({ ...profileDraft, pppd_accept_remote: c })} />} label="Accept remote" />
-                  <TextField label="Log File" value={profileDraft.pppd_log_file} onChange={(e) => setProfileDraft({ ...profileDraft, pppd_log_file: e.target.value })} />
-                  <TextField label="Plugin File" value={profileDraft.pppd_plugin_file} onChange={(e) => setProfileDraft({ ...profileDraft, pppd_plugin_file: e.target.value })} />
-                  <TextField label="Ifname" value={profileDraft.pppd_ifname} onChange={(e) => setProfileDraft({ ...profileDraft, pppd_ifname: e.target.value })} />
-                  <TextField label="Ip-Parameter" value={profileDraft.pppd_ipparam} onChange={(e) => setProfileDraft({ ...profileDraft, pppd_ipparam: e.target.value })} />
-                  <TextField label="Call name" value={profileDraft.pppd_call} onChange={(e) => setProfileDraft({ ...profileDraft, pppd_call: e.target.value })} />
+                  <FormControlLabel control={<Checkbox checked={profileDraft.pppd_no_peerdns} onChange={(_, c) => setProfileDraft({ ...profileDraft, pppd_no_peerdns: c })} />} label={t("editor.noPeerdns")} />
+                  <FormControlLabel control={<Checkbox checked={profileDraft.pppd_accept_remote} onChange={(_, c) => setProfileDraft({ ...profileDraft, pppd_accept_remote: c })} />} label={t("editor.acceptRemote")} />
+                  <TextField label={t("editor.logFile")} value={profileDraft.pppd_log_file} onChange={(e) => setProfileDraft({ ...profileDraft, pppd_log_file: e.target.value })} />
+                  <TextField label={t("editor.pluginFile")} value={profileDraft.pppd_plugin_file} onChange={(e) => setProfileDraft({ ...profileDraft, pppd_plugin_file: e.target.value })} />
+                  <TextField label={t("editor.ifname")} value={profileDraft.pppd_ifname} onChange={(e) => setProfileDraft({ ...profileDraft, pppd_ifname: e.target.value })} />
+                  <TextField label={t("editor.ipParam")} value={profileDraft.pppd_ipparam} onChange={(e) => setProfileDraft({ ...profileDraft, pppd_ipparam: e.target.value })} />
+                  <TextField label={t("editor.callName")} value={profileDraft.pppd_call} onChange={(e) => setProfileDraft({ ...profileDraft, pppd_call: e.target.value })} />
                 </Stack>
               </Paper>
               <Paper sx={sectionSx(colors)}>
-                <SectionTitle title="SSL" />
+                <SectionTitle title={t("editor.ssl")} />
                 <Stack p={2} spacing={1.5}>
-                  <FormControlLabel control={<Checkbox disabled={certLocked && profileDraft.device_type === "fortigate"} checked={profileDraft.insecure_ssl} onChange={(_, c) => setProfileDraft({ ...profileDraft, insecure_ssl: c })} />} label="Insecure SSL" />
-                  <FormControlLabel control={<Checkbox disabled={certLocked && profileDraft.device_type === "fortigate"} checked={profileDraft.seclevel1} onChange={(_, c) => setProfileDraft({ ...profileDraft, seclevel1: c })} />} label="SecLevel1" />
+                  <FormControlLabel control={<Checkbox disabled={certLocked && profileDraft.device_type === "fortigate"} checked={profileDraft.insecure_ssl} onChange={(_, c) => setProfileDraft({ ...profileDraft, insecure_ssl: c })} />} label={t("editor.insecureSsl")} />
+                  <FormControlLabel control={<Checkbox disabled={certLocked && profileDraft.device_type === "fortigate"} checked={profileDraft.seclevel1} onChange={(_, c) => setProfileDraft({ ...profileDraft, seclevel1: c })} />} label={t("editor.secLevel1")} />
                   <Select disabled={certLocked && profileDraft.device_type === "fortigate"} value={profileDraft.min_tls} onChange={(e) => setProfileDraft({ ...profileDraft, min_tls: e.target.value })}>
                     {["default", "1.0", "1.1", "1.2", "1.3"].map((v) => (
                       <MenuItem key={v} value={v}>
-                        {v === "default" ? "Default" : v}
+                        {v === "default" ? t("common.default") : v}
                       </MenuItem>
                     ))}
                   </Select>
@@ -1515,20 +1536,20 @@ export default function App() {
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setProfileOpen(false)}>Cancel</Button>
+          <Button onClick={() => setProfileOpen(false)}>{t("common.cancel")}</Button>
           <Button variant="contained" onClick={() => void saveProfile()}>
-            Save
+            {t("common.save")}
           </Button>
         </DialogActions>
       </Dialog>
 
       <Dialog open={groupOpen} onClose={() => setGroupOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>{groupOriginalName ? `Edit VPN-Group - ${groupOriginalName}` : "Add VPN-Group"}</DialogTitle>
+        <DialogTitle>{groupOriginalName ? t("group.edit", { name: groupOriginalName }) : t("group.add")}</DialogTitle>
         <DialogContent dividers>
           <Stack spacing={2}>
-            <TextField autoFocus={!groupOriginalName} label="Name" value={groupDraftName} onChange={(e) => setGroupDraftName(e.target.value)} />
+            <TextField autoFocus={!groupOriginalName} label={t("table.name")} value={groupDraftName} onChange={(e) => setGroupDraftName(e.target.value)} />
             <Paper sx={sectionSx(colors)}>
-              <SectionTitle title="Members" />
+              <SectionTitle title={t("group.members")} />
               <List dense>
                 {profiles.map((p) => {
                   const key = groupKey(p.origin, p.name);
@@ -1559,9 +1580,9 @@ export default function App() {
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setGroupOpen(false)}>Cancel</Button>
+          <Button onClick={() => setGroupOpen(false)}>{t("common.cancel")}</Button>
           <Button variant="contained" onClick={() => void saveGroup()}>
-            Save
+            {t("common.save")}
           </Button>
         </DialogActions>
       </Dialog>
@@ -1575,18 +1596,18 @@ export default function App() {
         maxWidth="xs"
         fullWidth
       >
-        <DialogTitle>{loginOtpPhase === "wrong_otp" ? "One-time password failed" : "One-time password"}</DialogTitle>
+        <DialogTitle>{loginOtpPhase === "wrong_otp" ? t("login.otpFailedTitle") : t("login.otpTitle")}</DialogTitle>
         <DialogContent>
           {loginOtpPhase === "wrong_otp" ? (
             <Typography variant="body2" color={colors.muted}>
-              The one-time password was invalid or has expired. Disconnect the VPN or request a new code.
+              {t("login.otpFailedBody")}
             </Typography>
           ) : (
             <TextField
               autoFocus
               fullWidth
               margin="dense"
-              label="OTP"
+              label={t("login.otpLabel")}
               type="password"
               value={loginOtp}
               onChange={(e) => setLoginOtp(e.target.value)}
@@ -1598,17 +1619,17 @@ export default function App() {
           {loginOtpPhase === "wrong_otp" ? (
             <>
               <Button color="error" onClick={() => void disconnectAfterWrongOtp()}>
-                Disconnect
+                {t("toolbar.disconnect")}
               </Button>
               <Button variant="contained" onClick={() => void requestNewOtp()}>
-                Request new OTP
+                {t("login.requestNewOtp")}
               </Button>
             </>
           ) : (
             <>
-              <Button onClick={() => void cancelLogin()}>Cancel</Button>
+              <Button onClick={() => void cancelLogin()}>{t("common.cancel")}</Button>
               <Button variant="contained" onClick={() => void submitLogin()}>
-                Submit
+                {t("login.submit")}
               </Button>
             </>
           )}
@@ -1616,14 +1637,14 @@ export default function App() {
       </Dialog>
 
       <Dialog open={gwCertDlg !== null} onClose={() => setGwCertDlg(null)} maxWidth="md" fullWidth>
-        <DialogTitle>Gateway certificate validation failed</DialogTitle>
+        <DialogTitle>{t("gwCert.title")}</DialogTitle>
         <DialogContent dividers>
           <Typography variant="body2" whiteSpace="pre-wrap" fontFamily="JetBrains Mono, monospace">
             {gwCertDlg?.body}
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setGwCertDlg(null)}>No</Button>
+          <Button onClick={() => setGwCertDlg(null)}>{t("common.no")}</Button>
           <Button
             variant="contained"
             onClick={() => {
@@ -1633,7 +1654,7 @@ export default function App() {
                 try {
                   const saved = await window.fvpn.trustGatewayDigest(d.profileName, d.digest);
                   if (!saved) {
-                    notify("Could not add this digest to the whitelist (invalid digest or already trusted).");
+                    notify(t("notify.digestWhitelistFailed"));
                     setGwCertDlg(null);
                     await refresh();
                     return;
@@ -1648,13 +1669,13 @@ export default function App() {
               })();
             }}
           >
-            Yes, whitelist
+            {t("gwCert.whitelist")}
           </Button>
         </DialogActions>
       </Dialog>
 
       <Dialog open={changelogOpen} onClose={() => setChangelogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Changelog</DialogTitle>
+        <DialogTitle>{t("changelog.title")}</DialogTitle>
         <DialogContent dividers>
           <List dense>
             <ListItemButton sx={{ alignItems: "flex-start", py: 1.5 }}>
@@ -1662,6 +1683,7 @@ export default function App() {
                 <Typography fontWeight={700}>0.2.0</Typography>
                 <Typography variant="body2" color={colors.muted} component="div" sx={{ mt: 0.5 }}>
                   <Box component="ul" sx={{ m: 0, pl: 2.25 }}>
+                    <li>{t("changelog.v020I18n")}</li>
                     <li>Light theme and header theme toggle (dark, light, system) with moon, sun, and computer icons.</li>
                     <li>Theme preference saved in <code>~/.fortivpngui/main.conf</code> (<code>gui/theme_mode</code>).</li>
                     <li>FortiGate OTP: one prompt per reconnect cycle; invalid OTP offers disconnect or request a new code (no prompt loop).</li>
@@ -1691,7 +1713,7 @@ export default function App() {
               void refresh();
             }}
           >
-            OK
+            {t("common.ok")}
           </Button>
         </DialogActions>
       </Dialog>
@@ -1724,9 +1746,9 @@ export default function App() {
             fontSize: "1rem",
           }}
         >
-          About
+          {t("about.title")}
           <Box flex={1} />
-          <IconButton size="small" onClick={() => setAboutOpen(false)} aria-label="Close" sx={{ color: colors.muted }}>
+          <IconButton size="small" onClick={() => setAboutOpen(false)} aria-label={t("common.close")} sx={{ color: colors.muted }}>
             <CloseIcon fontSize="small" />
           </IconButton>
         </DialogTitle>
@@ -1763,10 +1785,10 @@ export default function App() {
                 color: colors.primary,
               }}
             >
-              Version {APP_VERSION}
+              {t("common.version")} {APP_VERSION}
             </Box>
             <Typography variant="body2" color={colors.muted} textAlign="center" lineHeight={1.6} maxWidth={340}>
-              A modern, open-source desktop VPN client for FortiGate and Barracuda, with OpenFortiGUI-compatible profiles and groups.
+              {t("about.description")}
             </Typography>
             <Box
               sx={{
@@ -1780,9 +1802,9 @@ export default function App() {
               }}
             >
               {[
-                ["Credits", APP_AUTHOR || "—"],
+                [t("about.credits"), APP_AUTHOR || "—"],
                 [
-                  "Git",
+                  t("about.git"),
                   <Link
                     key="git"
                     href={APP_REPOSITORY}
@@ -1802,7 +1824,7 @@ export default function App() {
                     {APP_REPOSITORY.replace(/^https:\/\//, "")}
                   </Link>,
                 ],
-                ["License", APP_LICENSE],
+                [t("about.license"), APP_LICENSE],
               ].map(([label, value], i) => (
                 <Box
                   key={String(label)}
@@ -1861,26 +1883,26 @@ export default function App() {
               "&:hover": { borderColor: colors.muted, bgcolor: colors.surfaceLow },
             }}
           >
-            Close
+            {t("common.close")}
           </Button>
         </DialogActions>
       </Dialog>
 
       <Dialog open={wizardOpen} onClose={() => setWizardOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>FortiVPN GUI initial setup</DialogTitle>
+        <DialogTitle>{t("wizard.title")}</DialogTitle>
         <DialogContent dividers>
           {wizardStep === 0 ? (
             <Stack spacing={2}>
-              <Alert severity="info">Welcome to FortiVPN GUI.</Alert>
+              <Alert severity="info">{t("wizard.welcome")}</Alert>
               <Button variant="outlined" onClick={() => void runImport()}>
-                Import from OpenFortiGUI
+                {t("wizard.importOfg")}
               </Button>
             </Stack>
           ) : (
             <Stack spacing={2}>
-              <FormControlLabel control={<Checkbox checked={wizardUseStore} onChange={(_, c) => setWizardUseStore(c)} />} label="Uses system password manager" />
-              <TextField label="AES-Key" value={wizardAesKey} onChange={(e) => setWizardAesKey(e.target.value)} />
-              <TextField label="AES-IV" value={wizardAesIv} onChange={(e) => setWizardAesIv(e.target.value)} />
+              <FormControlLabel control={<Checkbox checked={wizardUseStore} onChange={(_, c) => setWizardUseStore(c)} />} label={t("wizard.usePasswordManager")} />
+              <TextField label={t("settings.aesKey")} value={wizardAesKey} onChange={(e) => setWizardAesKey(e.target.value)} />
+              <TextField label={t("settings.aesIv")} value={wizardAesIv} onChange={(e) => setWizardAesIv(e.target.value)} />
               <Button
                 variant="outlined"
                 onClick={() => {
@@ -1888,31 +1910,31 @@ export default function App() {
                   setWizardAesIv(randKey());
                 }}
               >
-                Autogenerate keys
+                {t("wizard.autogenerateKeys")}
               </Button>
             </Stack>
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setWizardOpen(false)}>Abort</Button>
+          <Button onClick={() => setWizardOpen(false)}>{t("wizard.abort")}</Button>
           <Box flex={1} />
           <Button disabled={wizardStep === 0} onClick={() => setWizardStep(0)}>
-            Back
+            {t("wizard.back")}
           </Button>
           {wizardStep === 0 ? (
             <Button variant="contained" onClick={() => setWizardStep(1)}>
-              Next
+              {t("wizard.next")}
             </Button>
           ) : (
             <Button variant="contained" onClick={() => void finishWizard()}>
-              Finish
+              {t("wizard.finish")}
             </Button>
           )}
         </DialogActions>
       </Dialog>
 
       <Dialog open={importResultText !== null} onClose={() => setImportResultText(null)} maxWidth="sm" fullWidth>
-        <DialogTitle>Import from OpenFortiGUI</DialogTitle>
+        <DialogTitle>{t("import.title")}</DialogTitle>
         <DialogContent dividers>
           <Typography variant="body2" component="pre" sx={{ whiteSpace: "pre-wrap", fontFamily: "inherit", m: 0 }}>
             {importResultText}
@@ -1920,7 +1942,7 @@ export default function App() {
         </DialogContent>
         <DialogActions>
           <Button variant="contained" onClick={() => setImportResultText(null)}>
-            OK
+            {t("common.ok")}
           </Button>
         </DialogActions>
       </Dialog>

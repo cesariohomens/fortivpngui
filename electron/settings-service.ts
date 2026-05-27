@@ -4,6 +4,15 @@ import ini from "ini";
 import { expandHome, paths, DEFAULT_AES_IV, DEFAULT_AES_KEY, toTilde } from "./config.js";
 import type { MainSettings, ThemeMode } from "./types.js";
 
+function parseLanguageSetting(raw: unknown): MainSettings["language"] {
+  const s = String(raw ?? "")
+    .trim()
+    .toLowerCase();
+  if (s === "system") return "system";
+  if (s === "en" || s === "pt" || s === "es" || s === "fr" || s === "it" || s === "de") return s;
+  return "system";
+}
+
 function parseThemeMode(raw: unknown): ThemeMode {
   const s = String(raw ?? "")
     .trim()
@@ -37,6 +46,7 @@ function defaultMain(): MainSettings {
     connect_on_dblclick: false,
     show_search: false,
     theme_mode: "dark",
+    language: "system",
   };
 }
 
@@ -90,6 +100,7 @@ export function readMainSettings(): MainSettings {
     connect_on_dblclick: iniBool(gui.connect_on_dblclick),
     show_search: iniBool(main.show_search),
     theme_mode: parseThemeMode(gui.theme_mode),
+    language: parseLanguageSetting(gui.language),
   };
 }
 
@@ -119,6 +130,7 @@ export function writeMainSettings(s: MainSettings): void {
       disable_notifications: s.disable_notifications,
       connect_on_dblclick: s.connect_on_dblclick,
       theme_mode: s.theme_mode,
+      language: s.language,
     },
   };
   fs.writeFileSync(paths.mainConf(), ini.stringify(obj), { mode: 0o600 });

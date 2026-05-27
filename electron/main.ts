@@ -438,6 +438,7 @@ if (!gotLock) {
     });
 
     ipcMain.handle("app:openfortivpnPath", () => resolveOpenfortivpnExecutable());
+    ipcMain.handle("app:getLocale", () => app.getLocale());
     ipcMain.handle("app:chooseDirectory", async (_e, initialPath?: string) => {
       const options: Electron.OpenDialogOptions = {
         defaultPath: initialPath ? expandHome(initialPath) : undefined,

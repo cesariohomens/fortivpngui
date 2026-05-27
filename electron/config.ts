@@ -3,7 +3,7 @@ import os from "os";
 
 export const APP_NAME = "FortiVPN GUI";
 /** Bump when changelog content changes (shown until user marks read). */
-export const CHANGELOG_REV = 3;
+export const CHANGELOG_REV = 4;
 
 export const NAME_VALIDATOR = /^[a-zA-ZäöüÄÖÜ0-9 \-_]{3,}$/;
 

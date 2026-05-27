@@ -1,12 +1,15 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
+import { I18nProvider } from "./I18nProvider";
 import { ThemeModeProvider } from "./ThemeModeProvider";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <ThemeModeProvider>
-      <App />
-    </ThemeModeProvider>
+    <I18nProvider>
+      <ThemeModeProvider>
+        <App />
+      </ThemeModeProvider>
+    </I18nProvider>
   </React.StrictMode>
 );

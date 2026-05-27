@@ -1,7 +1,11 @@
 export type DeviceType = "fortigate" | "barracuda";
 
+import type { LanguageSetting } from "./locale.js";
+
 /** UI colour scheme (`gui/theme_mode` in main.conf). */
 export type ThemeMode = "dark" | "light" | "system";
+
+export type { LanguageSetting, LocaleCode } from "./locale.js";
 
 /** Optional connect-time credentials (not stored on the profile). Compatible with `startVpn(name, otp)` (string = OTP only). */
 export interface VpnStartCredentials {
@@ -84,4 +88,6 @@ export interface MainSettings {
   show_search: boolean;
   /** `gui/theme_mode`: dark, light, or follow OS (system). */
   theme_mode: ThemeMode;
+  /** `gui/language`: UI language or `system` to follow OS locale. */
+  language: LanguageSetting;
 }

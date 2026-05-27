@@ -13,6 +13,7 @@ export interface FvpnApi {
   duplicateGroup: (name: string) => Promise<string>;
   getSettings: () => Promise<MainSettings>;
   saveSettings: (partial: Partial<MainSettings>) => Promise<MainSettings>;
+  getSystemLocale: () => Promise<string>;
   mergeOpenfortiguiMain: () => Promise<MainSettings | null>;
   startVpn: (name: string, arg?: string | VpnStartCredentials) => Promise<void>;
   stopVpn: (name: string) => Promise<void>;
