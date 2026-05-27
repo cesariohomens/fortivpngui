@@ -32,6 +32,25 @@ if [ -f "$SB" ]; then
   chmod 4755 "$SB" 2>/dev/null || true
 fi
 
+# Stop running instances so the next launch loads the new package under /opt/fortivpngui.
+pkill -x fortivpngui 2>/dev/null || true
+
+# Electron/Chromium user data (cache, GPU, etc.). Does not remove ~/.fortivpngui (VPN profiles).
+remove_app_config_cache() {
+  home=$1
+  [ -n "$home" ] || return 0
+  [ -d "$home" ] || return 0
+  rm -rf "$home/.config/fortivpngui" 2>/dev/null || true
+}
+
+if [ -n "$SUDO_USER" ] && [ "$SUDO_USER" != root ]; then
+  remove_app_config_cache "$(getent passwd "$SUDO_USER" | cut -d: -f6)"
+fi
+for home in /home/*; do
+  [ -d "$home" ] || continue
+  remove_app_config_cache "$home"
+done
+
 if command -v update-desktop-database >/dev/null 2>&1; then
   update-desktop-database -q || true
 fi
