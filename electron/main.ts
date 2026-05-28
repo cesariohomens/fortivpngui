@@ -10,6 +10,7 @@ import * as imp from "./import-service.js";
 import { CHANGELOG_REV } from "./config.js";
 import { resolveOpenfortivpnExecutable } from "./openfortivpn-runner.js";
 import { buildPlainTextLogHtml } from "./log-window-html.js";
+import { fromAppRoot } from "./app-root.js";
 import type { VpnStartCredentials } from "./types.js";
 
 let mainWindow: BrowserWindow | null = null;
@@ -23,9 +24,9 @@ let isQuitting = false;
 /** SVG copied to dist/ on build; duplicate under resources/ for packaged app. */
 function resolveAppIconPath(): string | undefined {
   const candidates = [
-    path.join(__dirname, "../resources/icon.svg"),
-    path.join(__dirname, "../dist/icon.svg"),
-    path.join(__dirname, "../public/icon.svg"),
+    fromAppRoot("resources/icon.svg"),
+    fromAppRoot("dist/icon.svg"),
+    fromAppRoot("public/icon.svg"),
   ];
   for (const p of candidates) {
     if (fs.existsSync(p)) return p;
@@ -186,7 +187,7 @@ function createWindow() {
     const url = dev.endsWith("/") ? dev : `${dev}/`;
     void mainWindow.loadURL(url);
   } else {
-    const indexHtml = path.join(__dirname, "../dist/index.html");
+    const indexHtml = fromAppRoot("dist/index.html");
     if (!fs.existsSync(indexHtml)) {
       console.error(`Renderer not built: missing ${indexHtml} (run npm run build)`);
     }
@@ -330,7 +331,7 @@ function buildTray() {
       if (!resized.isEmpty()) trayImg = resized;
     }
   }
-  const pngPath = path.join(__dirname, "../resources/tray.png");
+  const pngPath = fromAppRoot("resources/tray.png");
   if ((!trayImg || trayImg.isEmpty()) && fs.existsSync(pngPath)) {
     trayImg = nativeImage.createFromPath(pngPath);
   }
