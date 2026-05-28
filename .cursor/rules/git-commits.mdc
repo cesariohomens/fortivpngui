@@ -1,0 +1,18 @@
+---
+description: Git commit message policy — no Cursor co-author trailer
+alwaysApply: true
+---
+
+# Git commits
+
+When creating git commits (including via `git commit`, HEREDOC messages, or amend):
+
+- **Never** append `Co-authored-by: Cursor <cursoragent@cursor.com>` or any Cursor co-author trailer.
+- **Never** add other `Co-authored-by:` lines unless the user explicitly asks for a named co-author.
+- Commit messages should contain only the subject and body the user requested — no agent attribution footers.
+
+Optional safety net: enable repo git hooks so any injected trailer is stripped before the commit is created:
+
+```bash
+git config core.hooksPath .githooks
+```
