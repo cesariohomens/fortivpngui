@@ -1674,9 +1674,22 @@ export default function App() {
         </DialogActions>
       </Dialog>
 
-      <Dialog open={changelogOpen} onClose={() => setChangelogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>{t("changelog.title")}</DialogTitle>
-        <DialogContent dividers>
+      <Dialog
+        open={changelogOpen}
+        onClose={() => setChangelogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        scroll="paper"
+        PaperProps={{
+          sx: {
+            maxHeight: "min(520px, calc(100vh - 64px))",
+            display: "flex",
+            flexDirection: "column",
+          },
+        }}
+      >
+        <DialogTitle sx={{ flexShrink: 0 }}>{t("changelog.title")}</DialogTitle>
+        <DialogContent dividers sx={{ overflowY: "auto", flex: "1 1 auto" }}>
           <List dense>
             <ListItemButton sx={{ alignItems: "flex-start", py: 1.5 }}>
               <Box>
@@ -1705,7 +1718,7 @@ export default function App() {
             </ListItemButton>
           </List>
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={{ flexShrink: 0 }}>
           <Button
             onClick={() => {
               void window.fvpn.markChangelogRead();
