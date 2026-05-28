@@ -169,6 +169,10 @@ export const fr: Messages = {
   },
   changelog: {
     title: "Modifications",
+    v021LogTheme:
+      "Les fenêtres de journal VPN suivent le thème actif (sombre, clair ou système) et se mettent à jour lors d'un changement de thème.",
+    v021ChangelogScroll:
+      "La boîte de dialogue des modifications garde une taille fixe ; les longues listes de versions défilent verticalement, titre et OK restant visibles.",
     v020I18n:
       "Internationalisation de l'interface : portugais, espagnol, français, italien et allemand, avec l'anglais en secours ; suit automatiquement la langue du système ; modifiable dans Paramètres → Interface → Langue (drapeaux dans la liste déroulante).",
   },

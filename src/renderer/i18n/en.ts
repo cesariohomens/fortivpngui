@@ -167,6 +167,10 @@ export const en = {
   },
   changelog: {
     title: "Changelog",
+    v021LogTheme:
+      "VPN log windows follow the active theme (dark, light, or system) and refresh when the theme changes.",
+    v021ChangelogScroll:
+      "Changelog dialog keeps a fixed size; long release lists scroll vertically while the title and OK button stay visible.",
     v020I18n:
       "GUI internationalization: Portuguese, Spanish, French, Italian, and German, with English fallback; follows the system locale automatically; override in Settings → GUI → Language (flag icons in the dropdown).",
   },

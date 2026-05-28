@@ -1,6 +1,6 @@
 import pkg from "../package.json";
 
-export const CHANGELOG_REV = 4;
+export const CHANGELOG_REV = 5;
 export const APP_NAME = "FortiVPN GUI";
 export const APP_VERSION = pkg.version;
 

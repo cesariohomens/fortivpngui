@@ -169,6 +169,10 @@ export const pt: Messages = {
   },
   changelog: {
     title: "Alterações",
+    v021LogTheme:
+      "As janelas de log VPN seguem o tema activo (escuro, claro ou sistema) e actualizam-se quando o tema muda.",
+    v021ChangelogScroll:
+      "O diálogo de alterações mantém tamanho fixo; listas longas de versões rolam verticalmente com o título e OK sempre visíveis.",
     v020I18n:
       "Internacionalização da interface: português, espanhol, francês, italiano e alemão, com inglês como fallback; segue automaticamente a língua do sistema; pode ser alterada em Definições → Interface → Idioma (ícones de bandeira no dropdown).",
   },

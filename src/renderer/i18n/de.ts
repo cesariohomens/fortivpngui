@@ -169,6 +169,10 @@ export const de: Messages = {
   },
   changelog: {
     title: "Änderungen",
+    v021LogTheme:
+      "VPN-Log-Fenster folgen dem aktiven Theme (dunkel, hell oder System) und aktualisieren sich bei Theme-Wechsel.",
+    v021ChangelogScroll:
+      "Der Änderungsdialog behält eine feste Größe; lange Versionslisten scrollen vertikal, Titel und OK bleiben sichtbar.",
     v020I18n:
       "GUI-Internationalisierung: Portugiesisch, Spanisch, Französisch, Italienisch und Deutsch, mit Englisch als Fallback; folgt automatisch der Systemsprache; änderbar unter Einstellungen → Oberfläche → Sprache (Flaggen im Dropdown).",
   },

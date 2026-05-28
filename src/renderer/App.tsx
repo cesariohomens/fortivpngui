@@ -1693,6 +1693,17 @@ export default function App() {
           <List dense>
             <ListItemButton sx={{ alignItems: "flex-start", py: 1.5 }}>
               <Box>
+                <Typography fontWeight={700}>0.2.1</Typography>
+                <Typography variant="body2" color={colors.muted} component="div" sx={{ mt: 0.5 }}>
+                  <Box component="ul" sx={{ m: 0, pl: 2.25 }}>
+                    <li>{t("changelog.v021LogTheme")}</li>
+                    <li>{t("changelog.v021ChangelogScroll")}</li>
+                  </Box>
+                </Typography>
+              </Box>
+            </ListItemButton>
+            <ListItemButton sx={{ alignItems: "flex-start", py: 1.5 }}>
+              <Box>
                 <Typography fontWeight={700}>0.2.0</Typography>
                 <Typography variant="body2" color={colors.muted} component="div" sx={{ mt: 0.5 }}>
                   <Box component="ul" sx={{ m: 0, pl: 2.25 }}>
