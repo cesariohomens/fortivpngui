@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, Menu, nativeImage, Tray, dialog, shell } from "electron";
+import { app, BrowserWindow, ipcMain, Menu, nativeImage, nativeTheme, Tray, dialog, shell } from "electron";
 import path from "path";
 import fs from "fs";
 import { pathToFileURL } from "node:url";
@@ -9,6 +9,7 @@ import * as vpn from "./vpn-service.js";
 import * as imp from "./import-service.js";
 import { CHANGELOG_REV } from "./config.js";
 import { resolveOpenfortivpnExecutable } from "./openfortivpn-runner.js";
+import { buildPlainTextLogHtml } from "./log-window-html.js";
 import type { VpnStartCredentials } from "./types.js";
 
 let mainWindow: BrowserWindow | null = null;
@@ -60,55 +61,17 @@ function isPathUnderVpnLogsDir(absPath: string): boolean {
   return !path.isAbsolute(rel);
 }
 
-function escapeHtml(raw: string): string {
-  return raw
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-function buildPlainTextLogHtml(profileName: string, filePath: string): string {
-  const content = fs.existsSync(filePath)
-    ? fs.readFileSync(filePath, "utf8")
-    : `No log file exists yet for profile "${profileName}".\n\nExpected path:\n${filePath}\n`;
-  const title = `VPN Log - ${profileName}`;
-  return `<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
-  <title>${escapeHtml(title)}</title>
-  <style>
-    html, body { margin: 0; min-height: 100%; background: #131313; color: #e5e2e1; }
-    body { font-family: "JetBrains Mono", "Cascadia Code", "SFMono-Regular", Consolas, monospace; font-size: 12px; line-height: 1.55; }
-    header { position: sticky; top: 0; padding: 10px 14px; background: #001c3a; border-bottom: 1px solid #414753; font-family: Inter, "Segoe UI", sans-serif; }
-    .log-head-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
-    .log-head-text { min-width: 0; flex: 1; }
-    header strong { display: block; color: #a7c8ff; font-size: 13px; }
-    header span { display: block; margin-top: 2px; color: #c1c6d5; font-size: 11px; overflow-wrap: anywhere; }
-    #clearLog { flex-shrink: 0; margin-top: 2px; padding: 6px 12px; font-size: 12px; font-family: inherit; cursor: pointer; color: #e5e2e1; background: #2f486a; border: 1px solid #414753; border-radius: 6px; }
-    #clearLog:hover { background: #3d5a82; }
-    #clearLog:disabled { opacity: 0.55; cursor: not-allowed; }
-    pre { margin: 0; padding: 14px; white-space: pre-wrap; word-break: break-word; }
-  </style>
-</head>
-<body>
-  <header>
-    <div class="log-head-row">
-      <div class="log-head-text"><strong>${escapeHtml(title)}</strong><span>${escapeHtml(filePath)}</span></div>
-      <button type="button" id="clearLog" onclick="(function(){var b=document.getElementById('clearLog');if(!window.fvpnLogWindow)return;b.disabled=true;window.fvpnLogWindow.clearLogFile().finally(function(){b.disabled=false;});})()">Clear log</button>
-    </div>
-  </header>
-  <pre>${escapeHtml(content)}</pre>
-</body>
-</html>`;
-}
-
 function loadPlainTextLog(win: BrowserWindow, profileName: string, filePath: string): void {
   const html = buildPlainTextLogHtml(profileName, filePath);
   void win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+}
+
+function reloadOpenLogWindows(): void {
+  for (const win of logWindows.values()) {
+    if (win.isDestroyed()) continue;
+    const meta = logWindowMeta.get(win);
+    if (meta) loadPlainTextLog(win, meta.profileName, meta.filePath);
+  }
 }
 
 function openPlainTextLogWindow(profileName: string): string {
@@ -414,6 +377,9 @@ if (!gotLock) {
       Menu.setApplicationMenu(null);
     }
     initMainConfig();
+    nativeTheme.on("updated", () => {
+      if (readMainSettings().theme_mode === "system") reloadOpenLogWindows();
+    });
     createWindow();
     buildTray();
     vpn.setTrayRef(tray);
@@ -514,6 +480,7 @@ if (!gotLock) {
     ipcMain.handle("settings:get", () => readMainSettings());
     ipcMain.handle("settings:save", (_e, partial) => {
       const next = patchMainSettings(partial);
+      if (partial.theme_mode !== undefined) reloadOpenLogWindows();
       void refreshTrayMenu();
       return next;
     });

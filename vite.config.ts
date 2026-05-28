@@ -11,6 +11,14 @@ export default defineConfig({
   build: {
     outDir: path.resolve(__dirname, "dist"),
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes("node_modules/@mui/") || id.includes("node_modules/@emotion/")) return "mui";
+          if (id.includes("node_modules/react-dom") || id.includes("node_modules/react/")) return "react";
+        },
+      },
+    },
   },
   resolve: {
     alias: {
