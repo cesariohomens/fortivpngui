@@ -32,8 +32,13 @@ export function buildPlainTextLogHtml(profileName: string, filePath: string, tok
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
   <title>${escapeHtml(title)}</title>
   <style>
-    html, body { margin: 0; min-height: 100%; background: ${t.background}; color: ${t.onSurface}; color-scheme: ${resolved}; }
+    html, body { margin: 0; min-height: 100%; background: ${t.background}; color: ${t.onSurface}; color-scheme: ${resolved}; scrollbar-color: ${t.outlineVariant} ${t.surfaceLowest}; scrollbar-width: thin; }
     body { font-family: "JetBrains Mono", "Cascadia Code", "SFMono-Regular", Consolas, monospace; font-size: 12px; line-height: 1.55; }
+    *::-webkit-scrollbar { width: 8px; height: 8px; }
+    *::-webkit-scrollbar-track { background: ${t.surfaceLowest}; }
+    *::-webkit-scrollbar-thumb { background-color: ${t.outlineVariant}; border-radius: 8px; border: 2px solid ${t.surfaceLowest}; }
+    *::-webkit-scrollbar-thumb:hover { background-color: ${t.outline}; }
+    *::-webkit-scrollbar-corner { background: ${t.surfaceLowest}; }
     header { position: sticky; top: 0; padding: 10px 14px; background: ${t.nav}; border-bottom: 1px solid ${t.outlineVariant}; font-family: Inter, "Segoe UI", sans-serif; }
     .log-head-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
     .log-head-text { min-width: 0; flex: 1; }

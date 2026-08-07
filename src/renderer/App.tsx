@@ -1446,8 +1446,21 @@ export default function App() {
         </MenuItem>
       </Menu>
 
-      <Dialog open={profileOpen} onClose={() => setProfileOpen(false)} maxWidth="md" fullWidth scroll="paper">
-        <DialogTitle display="flex" alignItems="center" gap={1}>
+      <Dialog
+        open={profileOpen}
+        onClose={() => setProfileOpen(false)}
+        maxWidth="md"
+        fullWidth
+        scroll="paper"
+        PaperProps={{
+          sx: {
+            maxHeight: "min(720px, calc(100vh - 48px))",
+            display: "flex",
+            flexDirection: "column",
+          },
+        }}
+      >
+        <DialogTitle display="flex" alignItems="center" gap={1} sx={{ flexShrink: 0 }}>
           <EditIcon sx={{ color: colors.primary }} />
           {profileOriginalName ? t("editor.editVpn", { name: profileOriginalName }) : t("editor.addVpn")}
           <Box flex={1} />
@@ -1455,11 +1468,11 @@ export default function App() {
             <CloseIcon />
           </IconButton>
         </DialogTitle>
-        <Tabs value={profileEditorTab} onChange={(_, v) => setProfileEditorTab(v)} sx={{ px: 3 }}>
+        <Tabs value={profileEditorTab} onChange={(_, v) => setProfileEditorTab(v)} sx={{ px: 3, flexShrink: 0 }}>
           <Tab icon={<TuneIcon />} iconPosition="start" label={t("editor.preferences")} />
           <Tab icon={<SettingsIcon />} iconPosition="start" label={t("editor.options")} />
         </Tabs>
-        <DialogContent dividers>
+        <DialogContent dividers sx={{ overflowY: "auto", flex: "1 1 auto" }}>
           {profileEditorTab === 0 ? (
             <Stack spacing={2}>
               <Paper sx={sectionSx(colors)}>
@@ -1485,7 +1498,6 @@ export default function App() {
                     }}
                     inputProps={{ min: 0, step: 1 }}
                     placeholder="0"
-                    helperText={t("editor.reconnectSecondsHelp")}
                     sx={{ maxWidth: 320 }}
                   />
                 </Stack>
@@ -1599,7 +1611,7 @@ export default function App() {
             </Stack>
           )}
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={{ flexShrink: 0 }}>
           <Button onClick={() => setProfileOpen(false)}>{t("common.cancel")}</Button>
           <Button variant="contained" onClick={() => void saveProfile()}>
             {t("common.save")}

@@ -111,8 +111,6 @@ export const fr: Messages = {
     vpnServer: "Serveur VPN",
     vpnPort: "Port VPN",
     reconnectSeconds: "Intervalle de reconnexion (secondes)",
-    reconnectSecondsHelp:
-      "Option persistent d'openfortivpn. Laissez vide ou 0 pour ne jamais reconnecter automatiquement : FortiVPN GUI affiche un avertissement et vous reconnectez quand vous le souhaitez.",
     credentials: "Identifiants",
     username: "Nom d'utilisateur",
     password: "Mot de passe",

@@ -110,6 +110,26 @@ export function createAppTheme(tokens: ThemeTokens, resolved: ResolvedThemeMode)
             background: tokens.background,
             color: tokens.onSurface,
             scrollbarColor: `${tokens.outlineVariant} ${tokens.surfaceLowest}`,
+            scrollbarWidth: "thin",
+          },
+          // Electron/Chromium ignores scrollbar-color alone; keep thin themed bars everywhere.
+          "*::-webkit-scrollbar": {
+            width: 8,
+            height: 8,
+          },
+          "*::-webkit-scrollbar-track": {
+            background: tokens.surfaceLowest,
+          },
+          "*::-webkit-scrollbar-thumb": {
+            backgroundColor: tokens.outlineVariant,
+            borderRadius: 8,
+            border: `2px solid ${tokens.surfaceLowest}`,
+          },
+          "*::-webkit-scrollbar-thumb:hover": {
+            backgroundColor: tokens.outline,
+          },
+          "*::-webkit-scrollbar-corner": {
+            background: tokens.surfaceLowest,
           },
         },
       },

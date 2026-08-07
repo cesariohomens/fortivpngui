@@ -111,8 +111,6 @@ export const de: Messages = {
     vpnServer: "VPN-Server",
     vpnPort: "VPN-Port",
     reconnectSeconds: "Wiederverbindungsintervall (Sekunden)",
-    reconnectSecondsHelp:
-      "openfortivpn-Option persistent. Leer oder 0 bedeutet keine automatische Wiederverbindung: FortiVPN GUI zeigt eine Warnung und Sie verbinden erneut, wenn Sie möchten.",
     credentials: "Anmeldedaten",
     username: "Benutzername",
     password: "Passwort",
