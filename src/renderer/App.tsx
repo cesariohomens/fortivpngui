@@ -1776,6 +1776,7 @@ export default function App() {
                     <li>{t("changelog.v030DisconnectWarning")}</li>
                     <li>{t("changelog.v030PersistentSeconds")}</li>
                     <li>{t("changelog.v030Rpm")}</li>
+                    <li>{t("changelog.v030UiScroll")}</li>
                   </Box>
                 </Typography>
               </Box>

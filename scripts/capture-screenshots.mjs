@@ -65,12 +65,17 @@ function updateReadme(count) {
     "",
   ].join("\n");
 
-  const replaced = readme.replace(/## Screenshots\n[\s\S]*?(?=\n---\n)/, `${block}\n`);
-  if (replaced === readme) {
+  const re = /## Screenshots\r?\n[\s\S]*?(?=\r?\n---\r?\n)/;
+  if (!re.test(readme)) {
     throw new Error("Could not find ## Screenshots section in README.md");
   }
-  fs.writeFileSync(readmePath, replaced);
-  console.log(`[screenshots] README.md updated (${count} images)`);
+  const replaced = readme.replace(re, `${block}\n`);
+  if (replaced !== readme) {
+    fs.writeFileSync(readmePath, replaced);
+    console.log(`[screenshots] README.md updated (${count} images)`);
+  } else {
+    console.log(`[screenshots] README.md already up to date (${count} images)`);
+  }
 }
 
 async function main() {

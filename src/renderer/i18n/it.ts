@@ -194,6 +194,8 @@ export const it: Messages = {
     v030PersistentSeconds:
       "L'intervallo persistent di openfortivpn è ora modificabile per profilo in secondi (editor VPN → Comune), invece dei 60s fissi e nascosti.",
     v030Rpm: "Ora vengono generati pacchetti RPM oltre al .deb (npm run dist:rpm), per Fedora, RHEL e openSUSE.",
+    v030UiScroll:
+      "Barre di scorrimento sottili e tematiche nell'interfaccia e nelle finestre di log VPN; l'editor del profilo tiene fissi titolo, schede e azioni mentre il modulo scorre sul posto.",
     v021LogTheme:
       "Le finestre di log VPN seguono il tema attivo (scuro, chiaro o sistema) e si aggiornano al cambio tema.",
     v021ChangelogScroll:
