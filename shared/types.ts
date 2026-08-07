@@ -33,7 +33,8 @@ export interface VpnProfile {
   set_routes: boolean;
   set_dns: boolean;
   half_internet_routers: boolean;
-  persistent: boolean;
+  /** openfortivpn `persistent`: seconds between reconnect attempts. 0 disables auto-reconnect (user reconnects manually). */
+  persistent: number;
   ca_file: string;
   user_cert: string;
   user_key: string;

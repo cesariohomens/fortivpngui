@@ -5,6 +5,7 @@ import * as barr from "./barracuda-runner.js";
 import * as settingsService from "./settings-service.js";
 import { appendVpnLogLine } from "./vpn-file-logger.js";
 import * as certTracker from "./cert-failure-tracker.js";
+import * as disconnectReason from "./disconnect-reason.js";
 import fs from "fs";
 import type { VpnProfile, VpnStartCredentials, VpnTrafficStats } from "./types.js";
 function normalizeVpnStartArg(input?: string | VpnStartCredentials): { username?: string; password?: string; otp?: string } {
@@ -222,8 +223,20 @@ function onConnStateChange(profileName: string, prev: ConnState | undefined, nex
   if (next === "connected") maybeNotifyVpn("VPN connected", profileName);
   if (next === "disconnected" && (prev === "connected" || prev === "connecting")) {
     maybeNotifyVpn("VPN disconnected", profileName);
+    maybeWarnUnexpectedDisconnect(profileName, prev);
   }
   statusChangeHook?.();
+}
+
+/** The app never reconnects on its own: warn the user instead so they decide when to connect again. */
+function maybeWarnUnexpectedDisconnect(profileName: string, prev: ConnState): void {
+  if (disconnectReason.isUserInitiatedStop(profileName)) {
+    disconnectReason.resetDisconnectTracking(profileName);
+    return;
+  }
+  const { reasonKey, detail } = disconnectReason.classifyDisconnect(profileName);
+  emit("vpn:disconnect-warning", { name: profileName, reasonKey, detail, wasConnected: prev === "connected" });
+  disconnectReason.resetDisconnectTracking(profileName);
 }
 
 export function getVpnStatus(name: string): ConnState {
@@ -287,6 +300,7 @@ function maybeEmitFortigateStdinOtpPrompt(profileName: string, line: string, otp
 
 function processFortigateLogLine(profileName: string, line: string, stream: "stdout" | "stderr", otpPrompt?: string): void {
   appendVpnLogLine(profileName, stream, line);
+  disconnectReason.recordDisconnectHintLine(profileName, line);
   if (isOpenfortivpnReconnectCycleLine(line)) beginOtpReconnectCycle(profileName);
   maybeEmitFortigateStdinOtpPrompt(profileName, line, otpPrompt);
   const iface = line.match(/\bInterface\s+([^\s.]+)\s+is\s+UP\b/i)?.[1];
@@ -380,6 +394,7 @@ export async function startVpn(profileName: string, arg?: string | VpnStartCrede
       throw new Error("Please provide username and password in your VPN profile!");
     }
     const prev = status.get(profileName);
+    disconnectReason.resetDisconnectTracking(profileName);
     status.set(profileName, "connecting");
     onConnStateChange(profileName, prev, "connecting");
     emit("vpn:status", { name: profileName, state: "connecting" });
@@ -390,6 +405,7 @@ export async function startVpn(profileName: string, arg?: string | VpnStartCrede
       "",
       (line) => {
         appendVpnLogLine(profileName, "stdout", line);
+        disconnectReason.recordDisconnectHintLine(profileName, line);
         emit("vpn:log", { name: profileName, line, stream: "stdout" });
         maybeEmitBarracudaStdinOtpPrompt(profileName, line, p);
       },
@@ -408,6 +424,7 @@ export async function startVpn(profileName: string, arg?: string | VpnStartCrede
   }
 
   certTracker.resetCertFailureState(profileName);
+  disconnectReason.resetDisconnectTracking(profileName);
   const prev = status.get(profileName);
   status.set(profileName, "connecting");
   onConnStateChange(profileName, prev, "connecting");
@@ -451,6 +468,7 @@ export async function startVpn(profileName: string, arg?: string | VpnStartCrede
 }
 
 export async function stopVpn(profileName: string): Promise<void> {
+  disconnectReason.markUserInitiatedStop(profileName);
   fortigateStdinOtpPromptSent.delete(profileName);
   barracudaStdinOtpPromptSent.delete(profileName);
   const profiles = await profileService.listProfiles();
@@ -468,6 +486,7 @@ export async function stopVpn(profileName: string): Promise<void> {
 
 /** Sync cleanup before the Electron process exits: stop VPN helpers and remove TMPDIR artefacts. */
 export function cleanupTempFilesOnQuit(): void {
+  for (const name of status.keys()) disconnectReason.markUserInitiatedStop(name);
   ofv.stopEveryOpenfortivpnAndSweepTemp();
   barr.stopEveryBarracudaAndSweepTemp();
 }

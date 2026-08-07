@@ -66,4 +66,9 @@ contextBridge.exposeInMainWorld("fvpn", {
     ipcRenderer.on("vpn:fortigate-stdin-otp-prompt", fn);
     return () => ipcRenderer.removeListener("vpn:fortigate-stdin-otp-prompt", fn);
   },
+  onVpnDisconnectWarning: (cb: (ev: { name: string; reasonKey: string; detail: string; wasConnected: boolean }) => void) => {
+    const fn = (_e: IpcRendererEvent, ev: { name: string; reasonKey: string; detail: string; wasConnected: boolean }) => cb(ev);
+    ipcRenderer.on("vpn:disconnect-warning", fn);
+    return () => ipcRenderer.removeListener("vpn:disconnect-warning", fn);
+  },
 });

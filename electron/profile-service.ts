@@ -15,6 +15,15 @@ function iniBool(v: unknown): boolean {
   return s === "true" || s === "1";
 }
 
+/** OpenFortiGUI / older FortiVPN GUI stored `persistent` as a boolean; `true` maps to the historical 60s interval. */
+function iniPersistentSeconds(v: unknown): number {
+  const s = String(v ?? "").trim().toLowerCase();
+  if (s === "" || s === "false" || s === "0") return 0;
+  if (s === "true") return 60;
+  const n = Number.parseInt(s, 10);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
 function deviceFromInt(n: number): DeviceType {
   return n === 1 ? "barracuda" : "fortigate";
 }
@@ -87,7 +96,7 @@ export async function readProfileFromFile(
     set_routes: iniBool(opt.set_routes),
     set_dns: iniBool(opt.set_dns),
     half_internet_routers: iniBool(opt.half_internet_routers),
-    persistent: iniBool(vpn.persistent),
+    persistent: iniPersistentSeconds(vpn.persistent),
     ca_file: String(cert.ca_file || ""),
     user_cert: String(cert.user_cert || ""),
     user_key: String(cert.user_key || ""),
@@ -163,7 +172,7 @@ export async function saveProfileLocal(profile: VpnProfile): Promise<void> {
       gateway_port: profile.gateway_port || 443,
       username: profile.username.trim(),
       password: encPass,
-      persistent: profile.persistent,
+      persistent: Math.max(0, Math.trunc(profile.persistent) || 0),
       device_type: deviceToInt(profile.device_type),
     },
     cert: {

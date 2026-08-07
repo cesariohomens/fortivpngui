@@ -109,7 +109,9 @@ export const en = {
     common: "Common",
     vpnServer: "VPN-Server",
     vpnPort: "VPN-Port",
-    reconnectOnDisconnect: "Reconnect on disconnect",
+    reconnectSeconds: "Reconnect interval (seconds)",
+    reconnectSecondsHelp:
+      "openfortivpn persistent option. Leave empty or 0 to never reconnect automatically: FortiVPN GUI shows a warning and you connect again when you want.",
     credentials: "Credentials",
     username: "Username",
     password: "Password",
@@ -165,8 +167,36 @@ export const en = {
     title: "Gateway certificate validation failed",
     whitelist: "Yes, whitelist",
   },
+  disconnect: {
+    title: "VPN connection lost",
+    warning: "Warning",
+    profile: "Profile",
+    reason: "Reason",
+    details: "Last log lines",
+    noReconnect: "Automatic reconnection is off for this profile. Connect again when you are ready.",
+    reconnectOn: "This profile retries every {seconds}s; openfortivpn gave up.",
+    openLogs: "Open logs",
+    reasonAuthFailed: "The gateway rejected the credentials for this profile.",
+    reasonOtpInvalid: "The one-time password was invalid or expired.",
+    reasonCertRejected: "The gateway certificate could not be validated.",
+    reasonGatewayUnreachable: "The gateway could not be reached (DNS, routing, or firewall).",
+    reasonTimedOut: "The connection to the gateway timed out.",
+    reasonResetByPeer: "The gateway closed the connection unexpectedly.",
+    reasonPppdFailed: "The ppp daemon stopped, so the tunnel went down.",
+    reasonSudoDenied: "sudo refused to run openfortivpn (check /etc/sudoers.d/fortivpngui).",
+    reasonBinaryMissing: "The VPN helper binary could not be started.",
+    reasonTunnelDown: "The gateway ended the session and the tunnel went down.",
+    reasonUnknown: "The tunnel went down for an unknown reason. Check the log lines below.",
+  },
   changelog: {
     title: "Changelog",
+    v030NoAutoReconnect:
+      "No silent auto-reconnect: with an empty or 0 reconnect interval, FortiVPN GUI stops retrying and leaves reconnecting to you.",
+    v030DisconnectWarning:
+      "When a tunnel drops, a warning dialog explains why (authentication, certificate, gateway unreachable, timeout, ppp, and more) and shows the last log lines.",
+    v030PersistentSeconds:
+      "The openfortivpn persistent interval is now editable per profile in seconds (VPN editor → Common) instead of a hidden fixed 60s.",
+    v030Rpm: "RPM packages are built alongside .deb (npm run dist:rpm), for Fedora, RHEL, and openSUSE.",
     v021LogTheme:
       "VPN log windows follow the active theme (dark, light, or system) and refresh when the theme changes.",
     v021ChangelogScroll:

@@ -111,7 +111,9 @@ export const de: Messages = {
     common: "Allgemein",
     vpnServer: "VPN-Server",
     vpnPort: "VPN-Port",
-    reconnectOnDisconnect: "Bei Trennung erneut verbinden",
+    reconnectSeconds: "Wiederverbindungsintervall (Sekunden)",
+    reconnectSecondsHelp:
+      "openfortivpn-Option persistent. Leer oder 0 bedeutet keine automatische Wiederverbindung: FortiVPN GUI zeigt eine Warnung und Sie verbinden erneut, wenn Sie möchten.",
     credentials: "Anmeldedaten",
     username: "Benutzername",
     password: "Passwort",
@@ -167,8 +169,36 @@ export const de: Messages = {
     title: "Gateway-Zertifikatsvalidierung fehlgeschlagen",
     whitelist: "Ja, zur Whitelist hinzufügen",
   },
+  disconnect: {
+    title: "VPN-Verbindung verloren",
+    warning: "Warnung",
+    profile: "Profil",
+    reason: "Grund",
+    details: "Letzte Protokollzeilen",
+    noReconnect: "Die automatische Wiederverbindung ist für dieses Profil aus. Verbinden Sie erneut, wenn Sie möchten.",
+    reconnectOn: "Dieses Profil versucht es alle {seconds}s; openfortivpn hat aufgegeben.",
+    openLogs: "Protokolle öffnen",
+    reasonAuthFailed: "Das Gateway hat die Anmeldedaten dieses Profils abgelehnt.",
+    reasonOtpInvalid: "Das Einmalkennwort war ungültig oder abgelaufen.",
+    reasonCertRejected: "Das Gateway-Zertifikat konnte nicht validiert werden.",
+    reasonGatewayUnreachable: "Das Gateway war nicht erreichbar (DNS, Routing oder Firewall).",
+    reasonTimedOut: "Die Verbindung zum Gateway hat das Zeitlimit überschritten.",
+    reasonResetByPeer: "Das Gateway hat die Verbindung unerwartet geschlossen.",
+    reasonPppdFailed: "Der ppp-Daemon wurde beendet, daher ist der Tunnel ausgefallen.",
+    reasonSudoDenied: "sudo hat die Ausführung von openfortivpn verweigert (siehe /etc/sudoers.d/fortivpngui).",
+    reasonBinaryMissing: "Die VPN-Hilfsanwendung konnte nicht gestartet werden.",
+    reasonTunnelDown: "Das Gateway hat die Sitzung beendet und der Tunnel ist ausgefallen.",
+    reasonUnknown: "Der Tunnel ist aus unbekanntem Grund ausgefallen. Siehe die Protokollzeilen unten.",
+  },
   changelog: {
     title: "Änderungen",
+    v030NoAutoReconnect:
+      "Keine stille automatische Wiederverbindung: bei leerem Intervall oder 0 hört FortiVPN GUI auf, es zu versuchen, und überlässt Ihnen die Wiederverbindung.",
+    v030DisconnectWarning:
+      "Fällt der Tunnel aus, erklärt ein Warndialog den Grund (Authentifizierung, Zertifikat, Gateway nicht erreichbar, Zeitlimit, ppp und mehr) und zeigt die letzten Protokollzeilen.",
+    v030PersistentSeconds:
+      "Das persistent-Intervall von openfortivpn ist jetzt pro Profil in Sekunden einstellbar (VPN-Editor → Allgemein) statt fester, versteckter 60s.",
+    v030Rpm: "RPM-Pakete werden nun zusätzlich zum .deb erzeugt (npm run dist:rpm), für Fedora, RHEL und openSUSE.",
     v021LogTheme:
       "VPN-Log-Fenster folgen dem aktiven Theme (dunkel, hell oder System) und aktualisieren sich bei Theme-Wechsel.",
     v021ChangelogScroll:

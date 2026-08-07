@@ -53,6 +53,7 @@ import TranslateIcon from "@mui/icons-material/Translate";
 import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
 import VpnKeyIcon from "@mui/icons-material/VpnKey";
+import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import type { MainSettings, VpnGroup, VpnProfile, VpnStartCredentials, VpnTrafficStats } from "../../shared/types";
 import { APP_AUTHOR, APP_LICENSE, APP_NAME, APP_REPOSITORY, APP_VERSION, CHANGELOG_REV } from "../../shared/constants";
 import brandingMark from "../../build/icons/512x512.png";
@@ -85,7 +86,7 @@ const emptyProfile = (): VpnProfile => ({
   set_routes: true,
   set_dns: false,
   half_internet_routers: false,
-  persistent: false,
+  persistent: 0,
   ca_file: "",
   user_cert: "",
   user_key: "",
@@ -249,7 +250,14 @@ export default function App() {
   const loginOtpPhaseRef = useRef<OtpPhase>("idle");
 
   const [gwCertDlg, setGwCertDlg] = useState<{ profileName: string; digest: string; body: string } | null>(null);
+  const gwCertDlgRef = useRef<{ profileName: string; digest: string; body: string } | null>(null);
   const [changelogOpen, setChangelogOpen] = useState(false);
+  const [disconnectWarn, setDisconnectWarn] = useState<{
+    name: string;
+    reasonKey: string;
+    detail: string;
+    wasConnected: boolean;
+  } | null>(null);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [wizardStep, setWizardStep] = useState(0);
@@ -321,9 +329,28 @@ export default function App() {
 
   useEffect(() => window.fvpn.onGatewayCertPrompt((ev) => setGwCertDlg(ev)), []);
 
+  useEffect(
+    () =>
+      window.fvpn.onVpnDisconnectWarning((ev) => {
+        /** An open OTP or certificate dialog already explains this failure; do not stack a second modal. */
+        if (gwCertDlgRef.current?.profileName === ev.name) return;
+        if (loginOpenRef.current && loginTargetRef.current === ev.name) return;
+        setDisconnectWarn(ev);
+      }),
+    []
+  );
+
+  const disconnectWarnSeconds = disconnectWarn
+    ? profiles.find((x) => x.name === disconnectWarn.name)?.persistent ?? 0
+    : 0;
+
   useEffect(() => {
     profilesRef.current = profiles;
   }, [profiles]);
+
+  useEffect(() => {
+    gwCertDlgRef.current = gwCertDlg;
+  }, [gwCertDlg]);
 
   useEffect(() => {
     loginOpenRef.current = loginOpen;
@@ -1423,7 +1450,19 @@ export default function App() {
                     </Select>
                     <TextField label={t("editor.vpnPort")} type="number" value={profileDraft.gateway_port} onChange={(e) => setProfileDraft({ ...profileDraft, gateway_port: Number.parseInt(e.target.value, 10) || 10443 })} sx={{ maxWidth: 140 }} />
                   </Stack>
-                  <FormControlLabel control={<Checkbox checked={profileDraft.persistent} onChange={(_, c) => setProfileDraft({ ...profileDraft, persistent: c })} />} label={t("editor.reconnectOnDisconnect")} />
+                  <TextField
+                    label={t("editor.reconnectSeconds")}
+                    type="number"
+                    value={profileDraft.persistent === 0 ? "" : profileDraft.persistent}
+                    onChange={(e) => {
+                      const n = Number.parseInt(e.target.value, 10);
+                      setProfileDraft({ ...profileDraft, persistent: Number.isFinite(n) && n > 0 ? n : 0 });
+                    }}
+                    inputProps={{ min: 0, step: 1 }}
+                    placeholder="0"
+                    helperText={t("editor.reconnectSecondsHelp")}
+                    sx={{ maxWidth: 320 }}
+                  />
                 </Stack>
               </Paper>
               <Paper sx={sectionSx(colors)}>
@@ -1693,6 +1732,19 @@ export default function App() {
           <List dense>
             <ListItemButton sx={{ alignItems: "flex-start", py: 1.5 }}>
               <Box>
+                <Typography fontWeight={700}>0.3.0</Typography>
+                <Typography variant="body2" color={colors.muted} component="div" sx={{ mt: 0.5 }}>
+                  <Box component="ul" sx={{ m: 0, pl: 2.25 }}>
+                    <li>{t("changelog.v030NoAutoReconnect")}</li>
+                    <li>{t("changelog.v030DisconnectWarning")}</li>
+                    <li>{t("changelog.v030PersistentSeconds")}</li>
+                    <li>{t("changelog.v030Rpm")}</li>
+                  </Box>
+                </Typography>
+              </Box>
+            </ListItemButton>
+            <ListItemButton sx={{ alignItems: "flex-start", py: 1.5 }}>
+              <Box>
                 <Typography fontWeight={700}>0.2.1</Typography>
                 <Typography variant="body2" color={colors.muted} component="div" sx={{ mt: 0.5 }}>
                   <Box component="ul" sx={{ m: 0, pl: 2.25 }}>
@@ -1737,6 +1789,101 @@ export default function App() {
               void refresh();
             }}
           >
+            {t("common.ok")}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(disconnectWarn)}
+        onClose={() => setDisconnectWarn(null)}
+        maxWidth="xs"
+        fullWidth
+        slotProps={{
+          paper: {
+            sx: {
+              bgcolor: colors.surface,
+              border: `1px solid ${colors.warning}`,
+              borderRadius: 3,
+              backgroundImage: "none",
+            },
+          },
+        }}
+      >
+        <DialogTitle
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 1,
+            py: 1.5,
+            px: 2,
+            borderBottom: `1px solid ${colors.outline}`,
+            color: colors.text,
+            fontWeight: 700,
+            fontSize: "1rem",
+          }}
+        >
+          <WarningAmberIcon fontSize="small" sx={{ color: colors.warning }} />
+          {t("disconnect.title")}
+          <Box flex={1} />
+          <IconButton size="small" onClick={() => setDisconnectWarn(null)} aria-label={t("common.close")} sx={{ color: colors.muted }}>
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent sx={{ px: 3, pt: 0, pb: 2 }}>
+          <Stack alignItems="center" spacing={2} sx={{ pt: 4 }}>
+            <WarningAmberIcon sx={{ fontSize: 56, color: colors.warning }} />
+            <Typography variant="h6" fontWeight={800} color={colors.text} textAlign="center">
+              {disconnectWarn?.name}
+            </Typography>
+            <Typography variant="body2" color={colors.text} textAlign="center" lineHeight={1.6} maxWidth={360}>
+              {disconnectWarn
+                ? t(`disconnect.reason${disconnectWarn.reasonKey.charAt(0).toUpperCase()}${disconnectWarn.reasonKey.slice(1)}`)
+                : ""}
+            </Typography>
+            <Typography variant="body2" color={colors.muted} textAlign="center" lineHeight={1.6} maxWidth={360}>
+              {disconnectWarnSeconds > 0
+                ? t("disconnect.reconnectOn", { seconds: disconnectWarnSeconds })
+                : t("disconnect.noReconnect")}
+            </Typography>
+            {disconnectWarn?.detail ? (
+              <Box sx={{ width: "100%", alignSelf: "stretch" }}>
+                <Typography variant="caption" color={colors.muted} fontWeight={600} sx={{ display: "block", mb: 0.5 }}>
+                  {t("disconnect.details")}
+                </Typography>
+                <Box
+                  component="pre"
+                  sx={{
+                    m: 0,
+                    p: 1.5,
+                    maxHeight: 160,
+                    overflow: "auto",
+                    borderRadius: 2,
+                    border: `1px solid ${colors.outline}`,
+                    bgcolor: colors.surfaceLow,
+                    color: colors.muted,
+                    fontSize: "0.72rem",
+                    whiteSpace: "pre-wrap",
+                    wordBreak: "break-word",
+                  }}
+                >
+                  {disconnectWarn.detail}
+                </Box>
+              </Box>
+            ) : null}
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => {
+              const name = disconnectWarn?.name;
+              setDisconnectWarn(null);
+              if (name) scheduleAfterOverlayClose(() => void window.fvpn.openVpnLog(name));
+            }}
+          >
+            {t("disconnect.openLogs")}
+          </Button>
+          <Button variant="contained" onClick={() => setDisconnectWarn(null)}>
             {t("common.ok")}
           </Button>
         </DialogActions>

@@ -43,7 +43,7 @@ export function buildOpenfortivpnConfig(profile: VpnProfile, password: string, o
   if (!profile.set_routes) lines.push("set-routes = 0");
   if (profile.set_dns) lines.push("set-dns = 1");
   if (profile.half_internet_routers) lines.push("half-internet-routes = 1");
-  if (profile.persistent) lines.push(`persistent = 60`);
+  if (profile.persistent > 0) lines.push(`persistent = ${Math.trunc(profile.persistent)}`);
   if (profile.ca_file) lines.push(`ca-file = ${profile.ca_file}`);
   if (profile.user_cert) lines.push(`user-cert = ${profile.user_cert}`);
   if (profile.user_key) lines.push(`user-key = ${profile.user_key}`);

@@ -39,6 +39,7 @@ PNG files live in [`docs/images/`](docs/images/). Replace them anytime; the tabl
 - **FortiGate** profiles: `sudo openfortivpn` with generated configs, OTP on stdin, optional gateway certificate prompt and `trusted-cert` handling, traffic stats, per-profile log files.
 - **Barracuda** profiles: `barracudavpn` runner with temp config dirs and stdin OTP where supported.
 - **VPN groups**: connect/disconnect member profiles together; status derived from members.
+- **No silent auto-reconnect**: a dropped tunnel raises a **warning dialog** with the detected cause and the last log lines; reconnecting is the user's call unless a **reconnect interval** (openfortivpn `persistent`, in seconds) is set on the profile.
 - **Tray** on Linux: quick connect/disconnect, open main window, Settings tab, quit (full quit stops VPN helpers and cleans temp files).
 - **Main window close** hides to tray; **orphan** temp configs under `TMPDIR` / `fortivpngui` are swept without stopping active tunnels.
 - **Settings**: paths, AES key/IV, password manager (**keytar** / libsecret), notifications, search, **theme** (dark / light / system, stored in `main.conf`), import/merge from OpenFortiGUI.
@@ -53,6 +54,8 @@ PNG files live in [`docs/images/`](docs/images/). Replace them anytime; the tabl
 | **Development** | Node.js **20+**, npm |
 | **Runtime (Linux)** | `openfortivpn`, `ppp`, `sudo` for FortiGate; optional `barracudavpn` for Barracuda |
 | **.deb install** | Same as runtime; **`libsecret-1-0`** for optional OS keychain storage |
+| **.rpm install** | Same as runtime; **`libsecret`** for optional OS keychain storage |
+| **Building .rpm** | `rpmbuild` (`rpm-build` on Fedora/RHEL, `rpm` on Debian/Ubuntu) |
 
 ---
 
@@ -105,17 +108,27 @@ Paths are created on first run (`initMainConfig` in the Electron main process).
 
 ---
 
-## Debian package
+## Linux packages (.deb and .rpm)
 
 ```bash
-npm run dist
+npm run dist       # .deb + .rpm
+npm run dist:deb   # .deb only
+npm run dist:rpm   # .rpm only (host needs rpmbuild / rpm-build)
 ```
 
-Artifact: `release/fortivpngui_<version>_amd64.deb` (large; distribute via **GitHub Releases** or similar, not necessarily inside git).
+Artifacts land in `release/` (large; distribute via **GitHub Releases** or similar, not necessarily inside git):
 
-- **Depends:** `openfortivpn`, `ppp`, `sudo`, `libsecret-1-0` (see `package.json` → `build.deb.depends`).
-- **`postinst`** (`resources/deb/postinst.sh`): installs `/etc/sudoers.d/fortivpngui` from the unpacked template (`asarUnpack` for `resources/sudo/**` so the file exists on disk under `/opt/fortivpngui/...`), validates with `visudo -c`, adjusts `chrome-sandbox` setuid when present, refreshes desktop/icon caches.
-- **`postrm`** (`resources/deb/postrm.sh`): on **`remove`** / **`purge`** only, deletes `/etc/sudoers.d/fortivpngui` (not on **upgrade**).
+| Format | Artifact | Install |
+|--------|----------|---------|
+| **deb** | `fortivpngui_<version>_amd64.deb` | `sudo apt install ./fortivpngui_<version>_amd64.deb` |
+| **rpm** | `fortivpngui-<version>.x86_64.rpm` | `sudo dnf install ./fortivpngui-<version>.x86_64.rpm` |
+
+- **Depends (deb):** `openfortivpn`, `ppp`, `sudo`, `libsecret-1-0` (`package.json` → `build.deb.depends`).
+- **Depends (rpm):** `openfortivpn`, `ppp`, `sudo`, `libsecret` (`package.json` → `build.rpm.depends`).
+- **`postinst`** (`resources/deb/postinst.sh`, `resources/rpm/postinst.sh`): installs `/etc/sudoers.d/fortivpngui` from the unpacked template (`asarUnpack` for `resources/sudo/**` so the file exists on disk under `/opt/fortivpngui/...`), validates with `visudo -c`, adjusts `chrome-sandbox` setuid when present, refreshes desktop/icon caches. The RPM variant also runs `restorecon` for SELinux systems.
+- **`postrm`** (`resources/deb/postrm.sh`, `resources/rpm/postrm.sh`): deletes `/etc/sudoers.d/fortivpngui` on real removal only — deb checks `remove`/`purge`, rpm checks `$1 = 0` — never on **upgrade**.
+
+Maintainer scripts are kept as two sets because Debian and RPM pass different arguments to the hooks; keep them in sync when changing install behaviour.
 
 `npm install` **postinstall** only runs `electron-builder install-app-deps` (rebuilds **keytar** for the current Electron); it does **not** install sudoers.
 

@@ -111,7 +111,9 @@ export const fr: Messages = {
     common: "Commun",
     vpnServer: "Serveur VPN",
     vpnPort: "Port VPN",
-    reconnectOnDisconnect: "Reconnecter à la déconnexion",
+    reconnectSeconds: "Intervalle de reconnexion (secondes)",
+    reconnectSecondsHelp:
+      "Option persistent d'openfortivpn. Laissez vide ou 0 pour ne jamais reconnecter automatiquement : FortiVPN GUI affiche un avertissement et vous reconnectez quand vous le souhaitez.",
     credentials: "Identifiants",
     username: "Nom d'utilisateur",
     password: "Mot de passe",
@@ -167,8 +169,36 @@ export const fr: Messages = {
     title: "Échec de la validation du certificat de la passerelle",
     whitelist: "Oui, ajouter à la liste blanche",
   },
+  disconnect: {
+    title: "Connexion VPN perdue",
+    warning: "Avertissement",
+    profile: "Profil",
+    reason: "Motif",
+    details: "Dernières lignes du journal",
+    noReconnect: "La reconnexion automatique est désactivée pour ce profil. Reconnectez-vous quand vous le souhaitez.",
+    reconnectOn: "Ce profil réessaie toutes les {seconds}s ; openfortivpn a abandonné.",
+    openLogs: "Ouvrir les journaux",
+    reasonAuthFailed: "La passerelle a refusé les identifiants de ce profil.",
+    reasonOtpInvalid: "Le mot de passe à usage unique était invalide ou expiré.",
+    reasonCertRejected: "Le certificat de la passerelle n'a pas pu être validé.",
+    reasonGatewayUnreachable: "La passerelle est injoignable (DNS, routage ou pare-feu).",
+    reasonTimedOut: "La connexion à la passerelle a expiré.",
+    reasonResetByPeer: "La passerelle a fermé la connexion de façon inattendue.",
+    reasonPppdFailed: "Le démon ppp s'est arrêté, le tunnel est tombé.",
+    reasonSudoDenied: "sudo a refusé d'exécuter openfortivpn (vérifiez /etc/sudoers.d/fortivpngui).",
+    reasonBinaryMissing: "Le binaire auxiliaire du VPN n'a pas pu être démarré.",
+    reasonTunnelDown: "La passerelle a mis fin à la session et le tunnel est tombé.",
+    reasonUnknown: "Le tunnel est tombé pour une raison inconnue. Consultez les lignes de journal ci-dessous.",
+  },
   changelog: {
     title: "Modifications",
+    v030NoAutoReconnect:
+      "Plus de reconnexion automatique silencieuse : avec un intervalle vide ou 0, FortiVPN GUI cesse de réessayer et vous laisse reconnecter.",
+    v030DisconnectWarning:
+      "Lorsque le tunnel tombe, une boîte de dialogue d'avertissement explique pourquoi (authentification, certificat, passerelle injoignable, délai, ppp, etc.) et affiche les dernières lignes du journal.",
+    v030PersistentSeconds:
+      "L'intervalle persistent d'openfortivpn est désormais modifiable par profil en secondes (éditeur VPN → Commun), au lieu de 60s fixes et masquées.",
+    v030Rpm: "Des paquets RPM sont générés en plus du .deb (npm run dist:rpm), pour Fedora, RHEL et openSUSE.",
     v021LogTheme:
       "Les fenêtres de journal VPN suivent le thème actif (sombre, clair ou système) et se mettent à jour lors d'un changement de thème.",
     v021ChangelogScroll:

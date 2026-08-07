@@ -1,6 +1,6 @@
 {
   "name": "fortivpngui",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Desktop VPN GUI for FortiGate (openfortivpn) and Barracuda — Electron + Material UI",
   "main": "dist-electron/electron/main.js",
   "homepage": "https://github.com/cesariohomens/fortivpngui",
@@ -16,7 +16,9 @@
     "build": "npm run build:renderer && npm run build:electron",
     "start": "npm run build && electron --no-sandbox .",
     "electron:dev": "concurrently -k \"vite\" \"wait-on http://localhost:5173 && npm run build:electron && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electron --no-sandbox .\"",
-    "dist": "npm run build && electron-builder --linux deb",
+    "dist": "npm run build && electron-builder --linux deb rpm",
+    "dist:deb": "npm run build && electron-builder --linux deb",
+    "dist:rpm": "npm run build && electron-builder --linux rpm",
     "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {
@@ -59,7 +61,7 @@
       "build/icons/512x512.png"
     ],
     "linux": {
-      "target": ["deb"],
+      "target": ["deb", "rpm"],
       "category": "Network",
       "executableArgs": ["--no-sandbox"],
       "executableName": "fortivpngui",
@@ -78,6 +80,16 @@
       ],
       "afterInstall": "resources/deb/postinst.sh",
       "afterRemove": "resources/deb/postrm.sh"
+    },
+    "rpm": {
+      "depends": [
+        "openfortivpn",
+        "ppp",
+        "sudo",
+        "libsecret"
+      ],
+      "afterInstall": "resources/rpm/postinst.sh",
+      "afterRemove": "resources/rpm/postrm.sh"
     }
   }
 }
