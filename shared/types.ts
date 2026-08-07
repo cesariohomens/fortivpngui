@@ -1,5 +1,3 @@
-export type DeviceType = "fortigate" | "barracuda";
-
 import type { LanguageSetting } from "./locale.js";
 
 /** UI colour scheme (`gui/theme_mode` in main.conf). */
@@ -23,7 +21,6 @@ export interface VpnTrafficStats {
 export interface VpnProfile {
   name: string;
   origin: "local" | "global";
-  device_type: DeviceType;
   gateway_host: string;
   gateway_port: number;
   username: string;

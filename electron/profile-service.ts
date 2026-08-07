@@ -5,7 +5,7 @@ import { expandHome, NAME_VALIDATOR } from "./config.js";
 import { aes128Decrypt, aes128Encrypt } from "./crypto-aes.js";
 import { readMainSettings } from "./settings-service.js";
 import * as keychain from "./keychain-service.js";
-import type { VpnProfile, DeviceType } from "./types.js";
+import type { VpnProfile } from "./types.js";
 import { parseTrustedCertDigests } from "./openfortivpn-runner.js";
 
 function iniBool(v: unknown): boolean {
@@ -24,12 +24,10 @@ function iniPersistentSeconds(v: unknown): number {
   return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
-function deviceFromInt(n: number): DeviceType {
-  return n === 1 ? "barracuda" : "fortigate";
-}
-
-function deviceToInt(d: DeviceType): number {
-  return d === "barracuda" ? 1 : 0;
+/** OpenFortiGUI `device_type`: 0 = FortiGate, 1 = Barracuda (unsupported — skip). */
+function isUnsupportedDeviceType(raw: unknown): boolean {
+  const n = parseInt(String(raw ?? "0"), 10) || 0;
+  return n !== 0;
 }
 
 async function getAesKeys(): Promise<{ key: string; iv: string }> {
@@ -73,6 +71,10 @@ export async function readProfileFromFile(
   const vpn = o.vpn || {};
   const cert = o.cert || {};
   const opt = o.options || {};
+  if (isUnsupportedDeviceType(vpn.device_type)) {
+    console.warn(`[profile-service] Skipping unsupported Barracuda profile: ${name}`);
+    return null;
+  }
   const m = readMainSettings();
   const aes = includePassword && !m.use_system_password_store ? await getAesKeys() : null;
   let password = "";
@@ -86,7 +88,6 @@ export async function readProfileFromFile(
   return {
     name: String(vpn.name || name),
     origin,
-    device_type: deviceFromInt(parseInt(String(vpn.device_type || "0"), 10) || 0),
     gateway_host: String(vpn.gateway_host || ""),
     gateway_port: parseInt(String(vpn.gateway_port || "443"), 10) || 443,
     username: String(vpn.username || ""),
@@ -173,7 +174,8 @@ export async function saveProfileLocal(profile: VpnProfile): Promise<void> {
       username: profile.username.trim(),
       password: encPass,
       persistent: Math.max(0, Math.trunc(profile.persistent) || 0),
-      device_type: deviceToInt(profile.device_type),
+      /** OpenFortiGUI-compatible: 0 = FortiGate only. */
+      device_type: 0,
     },
     cert: {
       ca_file: profile.ca_file,

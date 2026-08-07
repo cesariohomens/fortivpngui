@@ -40,7 +40,6 @@ export const en = {
   },
   device: {
     fortigate: "Fortigate",
-    barracuda: "Barracuda",
   },
   profile: {
     localTitle: "Local VPNs",
@@ -131,7 +130,7 @@ export const en = {
     realm: "Realm",
     otpPrompt: "OTP prompt string",
     otpPromptHelp:
-      'When non-empty, stdin OTP opens if a log line matches (plain substring or JavaScript regex). When empty, OpenFortiGUI-style defaults apply (e.g. "Please", "Two-factor authentication", "one-time password"). Used for Fortigate and Barracuda.',
+      'When non-empty, stdin OTP opens if a log line matches (plain substring or JavaScript regex). When empty, OpenFortiGUI-style defaults apply (e.g. "Please", "Two-factor authentication", "one-time password").',
     alwaysAskOtp: "Always ask for OTP",
     otpDelay: "OTP delay",
     noFtmPush: "No FortiToken Mobile push",
@@ -146,8 +145,6 @@ export const en = {
     ssl: "SSL",
     insecureSsl: "Insecure SSL",
     secLevel1: "SecLevel1",
-    barracudaInfo:
-      'Barracuda uses gateway, username, password, and debug. With "Always ask for OTP", the token is sent on stdin (like a terminal); set "OTP prompt string" if the default detection does not match your client output. Fortigate certificate and other options are stored but not sent to barracudavpn.',
   },
   group: {
     add: "Add VPN-Group",
@@ -207,7 +204,7 @@ export const en = {
   about: {
     title: "About",
     description:
-      "A modern, open-source desktop VPN client for FortiGate and Barracuda, with OpenFortiGUI-compatible profiles and groups.",
+      "A modern, open-source desktop VPN client for FortiGate, with OpenFortiGUI-compatible profiles and groups.",
     credits: "Credits",
     git: "Git",
     license: "License",

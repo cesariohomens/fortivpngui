@@ -42,7 +42,6 @@ export const fr: Messages = {
   },
   device: {
     fortigate: "Fortigate",
-    barracuda: "Barracuda",
   },
   profile: {
     localTitle: "VPNs locales",
@@ -133,7 +132,7 @@ export const fr: Messages = {
     realm: "Realm",
     otpPrompt: "Texte de demande OTP",
     otpPromptHelp:
-      'Lorsqu\'il n\'est pas vide, l\'OTP via stdin s\'ouvre si une ligne de journal correspond (sous-chaîne ou regex JavaScript). Lorsqu\'il est vide, les valeurs par défaut style OpenFortiGUI s\'appliquent (p. ex. "Please", "Two-factor authentication", "one-time password"). Utilisé pour Fortigate et Barracuda.',
+      'Lorsqu\'il n\'est pas vide, l\'OTP via stdin s\'ouvre si une ligne de journal correspond (sous-chaîne ou regex JavaScript). Lorsqu\'il est vide, les valeurs par défaut style OpenFortiGUI s\'appliquent (p. ex. "Please", "Two-factor authentication", "one-time password").',
     alwaysAskOtp: "Toujours demander l'OTP",
     otpDelay: "Délai OTP",
     noFtmPush: "Pas de push FortiToken Mobile",
@@ -148,8 +147,6 @@ export const fr: Messages = {
     ssl: "SSL",
     insecureSsl: "SSL non sécurisé",
     secLevel1: "SecLevel1",
-    barracudaInfo:
-      'Barracuda utilise la passerelle, le nom d\'utilisateur, le mot de passe et le débogage. Avec "Toujours demander l\'OTP", le jeton est envoyé via stdin (comme un terminal) ; définissez "Texte de demande OTP" si la détection par défaut ne correspond pas à la sortie client. Les options de certificat Fortigate et autres sont stockées mais non envoyées à barracudavpn.',
   },
   group: {
     add: "Ajouter groupe VPN",
@@ -209,7 +206,7 @@ export const fr: Messages = {
   about: {
     title: "À propos",
     description:
-      "Client VPN de bureau moderne et open source pour FortiGate et Barracuda, avec profils et groupes compatibles OpenFortiGUI.",
+      "Client VPN de bureau moderne et open source pour FortiGate, avec profils et groupes compatibles OpenFortiGUI.",
     credits: "Crédits",
     git: "Git",
     license: "Licence",

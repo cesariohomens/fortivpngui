@@ -18,9 +18,9 @@ export interface FvpnApi {
   startVpn: (name: string, arg?: string | VpnStartCredentials) => Promise<void>;
   stopVpn: (name: string) => Promise<void>;
   vpnStatus: (name: string) => Promise<string>;
-  /** Fortigate or Barracuda: send OTP/token to the running VPN process stdin. */
+  /** FortiGate: send OTP/token to the running openfortivpn process stdin. */
   submitFortigateStdinOtp: (profileName: string, otp: string) => Promise<boolean>;
-  /** Allow one more stdin OTP prompt after a failed attempt (FortiGate / Barracuda). */
+  /** Allow one more stdin OTP prompt after a failed attempt. */
   resetOtpPrompt: (profileName: string) => Promise<void>;
   trustGatewayDigest: (profileName: string, digest: string) => Promise<false | "profile" | "cache">;
   chooseDirectory: (initialPath?: string) => Promise<string | null>;

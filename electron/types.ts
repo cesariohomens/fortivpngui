@@ -1,4 +1,3 @@
-export type DeviceType = "fortigate" | "barracuda";
 export type ThemeMode = "dark" | "light" | "system";
 export type LanguageSetting = "system" | "en" | "pt" | "es" | "fr" | "it" | "de";
 
@@ -17,7 +16,6 @@ export interface VpnTrafficStats {
 export interface VpnProfile {
   name: string;
   origin: "local" | "global";
-  device_type: DeviceType;
   gateway_host: string;
   gateway_port: number;
   username: string;

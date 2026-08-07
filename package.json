@@ -1,7 +1,7 @@
 {
   "name": "fortivpngui",
   "version": "0.3.0",
-  "description": "Desktop VPN GUI for FortiGate (openfortivpn) and Barracuda — Electron + Material UI",
+  "description": "Desktop VPN GUI for FortiGate (openfortivpn) — Electron + Material UI",
   "main": "dist-electron/electron/main.js",
   "homepage": "https://github.com/cesariohomens/fortivpngui",
   "author": {

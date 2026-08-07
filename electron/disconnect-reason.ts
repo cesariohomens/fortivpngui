@@ -25,7 +25,7 @@ export type DisconnectReasonKey =
   | "unknown";
 
 const PATTERNS: { key: DisconnectReasonKey; re: RegExp }[] = [
-  { key: "binaryMissing", re: /openfortivpn not found|barracudavpn not found|spawn error/i },
+  { key: "binaryMissing", re: /openfortivpn not found|spawn error/i },
   { key: "sudoDenied", re: /sudo:.*(?:no tty|not allowed|incorrect password|a password is required)/i },
   { key: "otpInvalid", re: /(?:otp|token|one-time password).*(?:invalid|incorrect|expired|rejected)|invalid.*(?:otp|token)/i },
   { key: "authFailed", re: /could not authenticate to (?:the )?gateway|no cookie given|authentication failed|access denied|permission denied by gateway/i },

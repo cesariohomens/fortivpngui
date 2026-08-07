@@ -115,7 +115,7 @@ async function runAutostartVpns(): Promise<void> {
     .filter((p) => p.autostart)
     .sort((a, b) => a.name.localeCompare(b.name));
   for (const p of candidates) {
-    if (p.device_type === "fortigate" && !ofvPath) {
+    if (!ofvPath) {
       console.warn("[autostart] Skipping Fortigate profile (openfortivpn not found):", p.name);
       continue;
     }
@@ -254,7 +254,7 @@ async function refreshTrayMenu() {
     const state = vpn.getVpnStatus(p.name);
     const active = state === "connected" || state === "connecting";
     return {
-      label: `${active ? "Disconnect" : "Connect"} ${p.name} (${p.device_type})`,
+      label: `${active ? "Disconnect" : "Connect"} ${p.name}`,
       click: async () => {
         try {
           if (active) await vpn.stopVpn(p.name);

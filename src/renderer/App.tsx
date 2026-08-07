@@ -76,7 +76,6 @@ const navWidth = 224;
 const emptyProfile = (): VpnProfile => ({
   name: "",
   origin: "local",
-  device_type: "fortigate",
   gateway_host: "",
   gateway_port: 10443,
   username: "",
@@ -373,29 +372,16 @@ export default function App() {
       }
       const profile = profilesRef.current.find((x) => x.name === name);
       if (!profile) return;
-      if (profile.device_type === "fortigate") {
-        if (profile.always_ask_otp) return;
-        setLoginOtpPhase("prompt");
-        setLoginOtpViaStdin(true);
-        setLoginChallengeExplicitOtp(true);
-        setLoginKind("challenge");
-        setLoginTarget(name);
-        setLoginUser(profile.username);
-        setLoginPass(profile.password);
-        setLoginOtp("");
-        setLoginOpen(true);
-      } else if (profile.device_type === "barracuda") {
-        if (!profile.always_ask_otp) return;
-        setLoginOtpPhase("prompt");
-        setLoginOtpViaStdin(true);
-        setLoginChallengeExplicitOtp(true);
-        setLoginKind("challenge");
-        setLoginTarget(name);
-        setLoginUser(profile.username);
-        setLoginPass(profile.password);
-        setLoginOtp("");
-        setLoginOpen(true);
-      }
+      if (profile.always_ask_otp) return;
+      setLoginOtpPhase("prompt");
+      setLoginOtpViaStdin(true);
+      setLoginChallengeExplicitOtp(true);
+      setLoginKind("challenge");
+      setLoginTarget(name);
+      setLoginUser(profile.username);
+      setLoginPass(profile.password);
+      setLoginOtp("");
+      setLoginOpen(true);
     });
   }, []);
 
@@ -441,7 +427,7 @@ export default function App() {
       const key = `${e.t}|${e.name}|${e.line}`;
       if (key === lastOtpChallengeLogKey.current) continue;
       const profile = profiles.find((x) => x.name === e.name);
-      if (!profile || profile.device_type !== "fortigate") continue;
+      if (!profile) continue;
 
       const phase = loginOtpPhaseRef.current;
       const target = loginTargetRef.current;
@@ -489,7 +475,6 @@ export default function App() {
             p.name.toLowerCase().includes(q) ||
             p.gateway_host.toLowerCase().includes(q) ||
             p.username.toLowerCase().includes(q) ||
-            p.device_type.toLowerCase().includes(q) ||
             p.origin.toLowerCase().includes(q)
         )
       : profiles;
@@ -538,11 +523,11 @@ export default function App() {
   const startVpnFlow = async (name: string) => {
     const p = profiles.find((x) => x.name === name);
     if (!p) return;
-    if (p.device_type === "fortigate" && !ofvPath) {
+    if (!ofvPath) {
       notify(t("notify.ofvNotFound"));
       return;
     }
-    if (p.device_type === "fortigate" && p.always_ask_otp) {
+    if (p.always_ask_otp) {
       lastOtpChallengeLogKey.current = "";
       delete fortiOtpChallengeDismissedAt.current[name];
       setLoginOtpPhase("prompt");
@@ -743,7 +728,7 @@ export default function App() {
         logGroupLine(t("log.groupMemberNotFound", { group: g.name, name }));
         continue;
       }
-      if (p.device_type === "fortigate" && !ofvPath) {
+      if (!ofvPath) {
         logGroupLine(t("log.groupSkipOfv", { group: g.name, name }));
         continue;
       }
@@ -942,7 +927,6 @@ export default function App() {
             <TableRow>
               <TableCell>{t("table.status")}</TableCell>
               <TableCell>{t("table.name")}</TableCell>
-              <TableCell>{t("table.device")}</TableCell>
               <TableCell>{t("table.gateway")}</TableCell>
               <TableCell>{t("table.user")}</TableCell>
               <TableCell>{t("table.traffic")}</TableCell>
@@ -976,9 +960,6 @@ export default function App() {
                     <StatusChip state={st} />
                   </TableCell>
                   <TableCell sx={{ fontWeight: 700 }}>{p.name}</TableCell>
-                  <TableCell>
-                    <Chip size="small" label={p.device_type === "fortigate" ? t("device.fortigate") : t("device.barracuda")} />
-                  </TableCell>
                   <TableCell sx={{ fontFamily: "JetBrains Mono, monospace" }}>
                     {p.gateway_host}:{p.gateway_port}
                   </TableCell>
@@ -991,7 +972,7 @@ export default function App() {
                       <IconButton
                         size="small"
                         color={active ? "error" : "primary"}
-                        disabled={p.device_type === "fortigate" && !ofvPath && !active}
+                        disabled={!ofvPath && !active}
                         onClick={() => void (active ? stopVpn(p.name) : startVpnFlow(p.name))}
                       >
                         {active ? <StopIcon fontSize="small" /> : <PlayArrowIcon fontSize="small" />}
@@ -1426,11 +1407,6 @@ export default function App() {
           <Tab icon={<SettingsIcon />} iconPosition="start" label={t("editor.options")} />
         </Tabs>
         <DialogContent dividers>
-          {profileDraft.device_type === "barracuda" && (
-            <Alert severity="info" sx={{ mb: 2 }}>
-              {t("editor.barracudaInfo")}
-            </Alert>
-          )}
           {profileEditorTab === 0 ? (
             <Stack spacing={2}>
               <Paper sx={sectionSx(colors)}>
@@ -1444,10 +1420,6 @@ export default function App() {
                   />
                   <Stack direction={{ xs: "column", sm: "row" }} gap={2}>
                     <TextField label={t("editor.vpnServer")} fullWidth value={profileDraft.gateway_host} onChange={(e) => setProfileDraft({ ...profileDraft, gateway_host: e.target.value })} />
-                    <Select value={profileDraft.device_type} onChange={(e) => setProfileDraft({ ...profileDraft, device_type: e.target.value as VpnProfile["device_type"] })} sx={{ minWidth: 180 }}>
-                      <MenuItem value="fortigate">{t("device.fortigate")}</MenuItem>
-                      <MenuItem value="barracuda">{t("device.barracuda")}</MenuItem>
-                    </Select>
                     <TextField label={t("editor.vpnPort")} type="number" value={profileDraft.gateway_port} onChange={(e) => setProfileDraft({ ...profileDraft, gateway_port: Number.parseInt(e.target.value, 10) || 10443 })} sx={{ maxWidth: 140 }} />
                   </Stack>
                   <TextField
@@ -1494,19 +1466,19 @@ export default function App() {
               <Paper sx={sectionSx(colors)}>
                 <SectionTitle
                   title={t("editor.certificate")}
-                  action={<FormControlLabel control={<Checkbox checked={certificateEnabled} disabled={certLocked && profileDraft.device_type === "fortigate"} onChange={(_, c) => setCertificateEnabled(c)} />} label={t("common.enabled")} />}
+                  action={<FormControlLabel control={<Checkbox checked={certificateEnabled} disabled={certLocked} onChange={(_, c) => setCertificateEnabled(c)} />} label={t("common.enabled")} />}
                 />
                 <Stack p={2} spacing={2}>
-                  <TextField disabled={!certificateEnabled || (certLocked && profileDraft.device_type === "fortigate")} label={t("editor.userCert")} value={profileDraft.user_cert} onChange={(e) => setProfileDraft({ ...profileDraft, user_cert: e.target.value })} />
-                  <TextField disabled={!certificateEnabled || (certLocked && profileDraft.device_type === "fortigate")} label={t("editor.userKey")} value={profileDraft.user_key} onChange={(e) => setProfileDraft({ ...profileDraft, user_key: e.target.value })} />
-                  <TextField disabled={!certificateEnabled || (certLocked && profileDraft.device_type === "fortigate")} label={t("editor.caFile")} value={profileDraft.ca_file} onChange={(e) => setProfileDraft({ ...profileDraft, ca_file: e.target.value })} />
+                  <TextField disabled={!certificateEnabled || (certLocked)} label={t("editor.userCert")} value={profileDraft.user_cert} onChange={(e) => setProfileDraft({ ...profileDraft, user_cert: e.target.value })} />
+                  <TextField disabled={!certificateEnabled || (certLocked)} label={t("editor.userKey")} value={profileDraft.user_key} onChange={(e) => setProfileDraft({ ...profileDraft, user_key: e.target.value })} />
+                  <TextField disabled={!certificateEnabled || (certLocked)} label={t("editor.caFile")} value={profileDraft.ca_file} onChange={(e) => setProfileDraft({ ...profileDraft, ca_file: e.target.value })} />
                 </Stack>
               </Paper>
               <Paper sx={sectionSx(colors)}>
                 <SectionTitle title={t("editor.gwValidation")} />
                 <Stack p={2} spacing={2}>
-                  <FormControlLabel control={<Checkbox disabled={certLocked && profileDraft.device_type === "fortigate"} checked={profileDraft.trust_all_gw_certs} onChange={(_, c) => setProfileDraft({ ...profileDraft, trust_all_gw_certs: c })} />} label={t("editor.trustAllCerts")} />
-                  <TextField disabled={certLocked && profileDraft.device_type === "fortigate"} label={t("editor.trustedCert")} value={profileDraft.trusted_cert} onChange={(e) => setProfileDraft({ ...profileDraft, trusted_cert: e.target.value })} />
+                  <FormControlLabel control={<Checkbox disabled={certLocked} checked={profileDraft.trust_all_gw_certs} onChange={(_, c) => setProfileDraft({ ...profileDraft, trust_all_gw_certs: c })} />} label={t("editor.trustAllCerts")} />
+                  <TextField disabled={certLocked} label={t("editor.trustedCert")} value={profileDraft.trusted_cert} onChange={(e) => setProfileDraft({ ...profileDraft, trusted_cert: e.target.value })} />
                   <Button
                     size="small"
                     variant="outlined"
@@ -1560,9 +1532,9 @@ export default function App() {
               <Paper sx={sectionSx(colors)}>
                 <SectionTitle title={t("editor.ssl")} />
                 <Stack p={2} spacing={1.5}>
-                  <FormControlLabel control={<Checkbox disabled={certLocked && profileDraft.device_type === "fortigate"} checked={profileDraft.insecure_ssl} onChange={(_, c) => setProfileDraft({ ...profileDraft, insecure_ssl: c })} />} label={t("editor.insecureSsl")} />
-                  <FormControlLabel control={<Checkbox disabled={certLocked && profileDraft.device_type === "fortigate"} checked={profileDraft.seclevel1} onChange={(_, c) => setProfileDraft({ ...profileDraft, seclevel1: c })} />} label={t("editor.secLevel1")} />
-                  <Select disabled={certLocked && profileDraft.device_type === "fortigate"} value={profileDraft.min_tls} onChange={(e) => setProfileDraft({ ...profileDraft, min_tls: e.target.value })}>
+                  <FormControlLabel control={<Checkbox disabled={certLocked} checked={profileDraft.insecure_ssl} onChange={(_, c) => setProfileDraft({ ...profileDraft, insecure_ssl: c })} />} label={t("editor.insecureSsl")} />
+                  <FormControlLabel control={<Checkbox disabled={certLocked} checked={profileDraft.seclevel1} onChange={(_, c) => setProfileDraft({ ...profileDraft, seclevel1: c })} />} label={t("editor.secLevel1")} />
+                  <Select disabled={certLocked} value={profileDraft.min_tls} onChange={(e) => setProfileDraft({ ...profileDraft, min_tls: e.target.value })}>
                     {["default", "1.0", "1.1", "1.2", "1.3"].map((v) => (
                       <MenuItem key={v} value={v}>
                         {v === "default" ? t("common.default") : v}
@@ -1608,7 +1580,7 @@ export default function App() {
                           {p.name}
                         </Typography>
                         <Typography variant="caption" color={colors.muted}>
-                          {p.origin} / {p.device_type}
+                          {p.origin}
                         </Typography>
                       </Box>
                     </ListItemButton>
@@ -1775,7 +1747,7 @@ export default function App() {
               <Box>
                 <Typography fontWeight={700}>0.1.0</Typography>
                 <Typography variant="body2" color={colors.muted} sx={{ mt: 0.5 }}>
-                  Electron shell, OpenFortiGUI-compatible profiles/groups, Fortigate and Barracuda runners.
+                  Electron shell, OpenFortiGUI-compatible profiles/groups, Fortigate openfortivpn runner.
                 </Typography>
               </Box>
             </ListItemButton>

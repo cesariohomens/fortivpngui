@@ -17,7 +17,7 @@
 
 # FortiVPN GUI
 
-Desktop VPN client for **FortiGate** (system [`openfortivpn`](https://github.com/adrienverge/openfortivpn)) and **Barracuda** (`barracudavpn`, optional). The UI is **Electron**, **React 19**, and **Material UI**. Profiles and groups use an **INI-style layout** under `~/.fortivpngui/`, compatible with **OpenFortiGUI** for import and day-to-day use.
+Desktop VPN client for **FortiGate** (system [`openfortivpn`](https://github.com/adrienverge/openfortivpn)). The UI is **Electron**, **React 19**, and **Material UI**. Profiles and groups use an **INI-style layout** under `~/.fortivpngui/`, compatible with **OpenFortiGUI** for import and day-to-day use.
 
 **Licence:** this repository is [MIT](LICENSE). Runtime dependencies (Electron, React, MUI, `openfortivpn`, etc.) have their own licences.
 
@@ -37,7 +37,6 @@ PNG files live in [`docs/images/`](docs/images/). Replace them anytime; the tabl
 ## Features
 
 - **FortiGate** profiles: `sudo openfortivpn` with generated configs, OTP on stdin, optional gateway certificate prompt and `trusted-cert` handling, traffic stats, per-profile log files.
-- **Barracuda** profiles: `barracudavpn` runner with temp config dirs and stdin OTP where supported.
 - **VPN groups**: connect/disconnect member profiles together; status derived from members.
 - **No silent auto-reconnect**: a dropped tunnel raises a **warning dialog** with the detected cause and the last log lines; reconnecting is the user's call unless a **reconnect interval** (openfortivpn `persistent`, in seconds) is set on the profile.
 - **Tray** on Linux: quick connect/disconnect, open main window, Settings tab, quit (full quit stops VPN helpers and cleans temp files).
@@ -52,7 +51,7 @@ PNG files live in [`docs/images/`](docs/images/). Replace them anytime; the tabl
 | Context | Needs |
 |--------|--------|
 | **Development** | Node.js **20+**, npm |
-| **Runtime (Linux)** | `openfortivpn`, `ppp`, `sudo` for FortiGate; optional `barracudavpn` for Barracuda |
+| **Runtime (Linux)** | `openfortivpn`, `ppp`, `sudo` |
 | **.deb install** | Same as runtime; **`libsecret-1-0`** for optional OS keychain storage |
 | **.rpm install** | Same as runtime; **`libsecret`** for optional OS keychain storage |
 | **Building .rpm** | `rpmbuild` (`rpm-build` on Fedora/RHEL, `rpm` on Debian/Ubuntu) |
@@ -63,7 +62,7 @@ PNG files live in [`docs/images/`](docs/images/). Replace them anytime; the tabl
 
 | Path | Role |
 |------|------|
-| `electron/` | Main process: window, tray, IPC, VPN runners (`openfortivpn-runner`, `barracuda-runner`), profiles/groups/settings/import, preload bridge |
+| `electron/` | Main process: window, tray, IPC, VPN runner (`openfortivpn-runner`), profiles/groups/settings/import, preload bridge |
 | `src/renderer/` | React UI (`App.tsx`), Vite entry |
 | `shared/` | Types and constants shared at build time (`constants.ts` imports `package.json` for version and metadata) |
 | `resources/` | Packaged assets: `sudo/` template, `deb/postinst.sh` & `deb/postrm.sh`, icons |
@@ -171,4 +170,4 @@ When you add or change changelog content shown to users, bump **`CHANGELOG_REV`*
 
 ## Third-party components
 
-This app bundles or depends on **Electron**, **React**, **Vite**, **Material UI**, **ini**, **keytar**, and system tools **openfortivpn** / **barracudavpn**. Their licences apply to those components, not to this repo’s MIT-licensed source as a whole.
+This app bundles or depends on **Electron**, **React**, **Vite**, **Material UI**, **ini**, **keytar**, and the system tool **openfortivpn**. Their licences apply to those components, not to this repo’s MIT-licensed source as a whole.

@@ -1,7 +1,6 @@
 import { BrowserWindow, Notification, Tray } from "electron";
 import * as profileService from "./profile-service.js";
 import * as ofv from "./openfortivpn-runner.js";
-import * as barr from "./barracuda-runner.js";
 import * as settingsService from "./settings-service.js";
 import { appendVpnLogLine } from "./vpn-file-logger.js";
 import * as certTracker from "./cert-failure-tracker.js";
@@ -18,8 +17,6 @@ function normalizeVpnStartArg(input?: string | VpnStartCredentials): { username?
   };
 }
 
-/** Barracuda interactive OTP: `barracudavpn` reads the token from stdin (TUI). OpenFortiGUI uses `--onetimepwd`, which is ignored on several Linux client builds. */
-const barracudaStdinOtpPromptSent = new Set<string>();
 /** One IPC per Fortigate OTP cycle until explicit reset, reconnect cycle, start, or stop. */
 const fortigateStdinOtpPromptSent = new Set<string>();
 const otpReconnectCycleDebounced = new Map<string, number>();
@@ -27,7 +24,6 @@ const OTP_RECONNECT_DEBOUNCE_MS = 2000;
 
 /**
  * OpenFortiGUI `vpnlogger.cpp`: when `otp_prompt` is empty, OTP UI if chunk contains any of these; when set, substring/regex match.
- * Logger is shared for Fortigate and Barracuda. Extra patterns cover common TUI / gateway wording.
  */
 function otpLogLineRequestsToken(line: string, customPrompt?: string): boolean {
   const raw = customPrompt?.trim();
@@ -57,14 +53,6 @@ function otpLogLineRequestsToken(line: string, customPrompt?: string): boolean {
   return false;
 }
 
-function maybeEmitBarracudaStdinOtpPrompt(profileName: string, line: string, profile: VpnProfile): void {
-  if (profile.device_type !== "barracuda" || !profile.always_ask_otp) return;
-  if (!otpLogLineRequestsToken(line, profile.otp_prompt)) return;
-  if (barracudaStdinOtpPromptSent.has(profileName)) return;
-  barracudaStdinOtpPromptSent.add(profileName);
-  emit("vpn:fortigate-stdin-otp-prompt", { name: profileName });
-}
-
 function isOpenfortivpnReconnectCycleLine(line: string): boolean {
   return (
     /tunnel is down/i.test(line) ||
@@ -83,22 +71,18 @@ function beginOtpReconnectCycle(profileName: string): void {
   if (now - last < OTP_RECONNECT_DEBOUNCE_MS) return;
   otpReconnectCycleDebounced.set(profileName, now);
   fortigateStdinOtpPromptSent.delete(profileName);
-  barracudaStdinOtpPromptSent.delete(profileName);
 }
 
 /** User chose to request a new OTP after a failed attempt. */
 export function resetFortigateOtpPrompt(profileName: string): void {
   fortigateStdinOtpPromptSent.delete(profileName);
-  barracudaStdinOtpPromptSent.delete(profileName);
 }
 
-/** Feed OTP to a running openfortivpn (FortiGate 2FA on stdin) or barracudavpn (TUI), like typing in a terminal. */
+/** Feed OTP to a running openfortivpn (FortiGate 2FA on stdin), like typing in a terminal. */
 export function submitFortigateStdinOtp(profileName: string, otp: string): boolean {
   const t = otp.trim();
   if (!t) return false;
-  if (ofv.writeOpenfortivpnStdinLine(profileName, t)) return true;
-  if (barr.writeBarracudaStdinLine(profileName, t)) return true;
-  return false;
+  return ofv.writeOpenfortivpnStdinLine(profileName, t);
 }
 
 export type ConnState = "disconnected" | "connecting" | "connected";
@@ -147,7 +131,7 @@ async function appendTrustedCertDigestToProfile(
 ): Promise<false | "profile" | "cache"> {
   const profiles = await profileService.listProfiles();
   const p = profiles.find((x) => x.name === profileName);
-  if (!p || p.device_type !== "fortigate") return false;
+  if (!p) return false;
   if (p.trust_all_gw_certs) {
     const cached = settingsService.readGwCertCache()[profileName]?.toLowerCase();
     if (cached === digest) return false;
@@ -281,16 +265,6 @@ function startTrafficPoll(profileName: string, iface: string): void {
   trafficTimers.set(profileName, setInterval(tick, 2000));
 }
 
-function isAnyBarracudaActive(profiles: VpnProfile[], exceptName?: string): boolean {
-  for (const [name, state] of status.entries()) {
-    if (name === exceptName) continue;
-    if (profiles.find((p) => p.name === name)?.device_type !== "barracuda") continue;
-    if (state !== "connected" && state !== "connecting") continue;
-    return true;
-  }
-  return false;
-}
-
 function maybeEmitFortigateStdinOtpPrompt(profileName: string, line: string, otpPrompt?: string): void {
   if (!otpLogLineRequestsToken(line, otpPrompt)) return;
   if (fortigateStdinOtpPromptSent.has(profileName)) return;
@@ -386,43 +360,6 @@ export async function startVpn(profileName: string, arg?: string | VpnStartCrede
         : p.username
       : p.username;
 
-  if (p.device_type === "barracuda") {
-    if (isAnyBarracudaActive(profiles, profileName)) {
-      throw new Error("Only one running barracuda VPN allowed!");
-    }
-    if (!effectiveUsername || !effectivePassword) {
-      throw new Error("Please provide username and password in your VPN profile!");
-    }
-    const prev = status.get(profileName);
-    disconnectReason.resetDisconnectTracking(profileName);
-    status.set(profileName, "connecting");
-    onConnStateChange(profileName, prev, "connecting");
-    emit("vpn:status", { name: profileName, state: "connecting" });
-    barracudaStdinOtpPromptSent.delete(profileName);
-    barr.startBarracuda(
-      { ...p, username: effectiveUsername },
-      effectivePassword,
-      "",
-      (line) => {
-        appendVpnLogLine(profileName, "stdout", line);
-        disconnectReason.recordDisconnectHintLine(profileName, line);
-        emit("vpn:log", { name: profileName, line, stream: "stdout" });
-        maybeEmitBarracudaStdinOtpPrompt(profileName, line, p);
-      },
-      (s) => {
-        const st: ConnState = s === "connected" ? "connected" : s === "connecting" ? "connecting" : "disconnected";
-        const prevS = status.get(profileName);
-        status.set(profileName, st);
-        if (st === "connected") barracudaStdinOtpPromptSent.delete(profileName);
-        if (st === "disconnected") clearTrafficPoll(profileName);
-        onConnStateChange(profileName, prevS, st);
-        emit("vpn:status", { name: profileName, state: st });
-      },
-      (nextStats) => emitStats(profileName, nextStats)
-    );
-    return;
-  }
-
   certTracker.resetCertFailureState(profileName);
   disconnectReason.resetDisconnectTracking(profileName);
   const prev = status.get(profileName);
@@ -470,13 +407,7 @@ export async function startVpn(profileName: string, arg?: string | VpnStartCrede
 export async function stopVpn(profileName: string): Promise<void> {
   disconnectReason.markUserInitiatedStop(profileName);
   fortigateStdinOtpPromptSent.delete(profileName);
-  barracudaStdinOtpPromptSent.delete(profileName);
-  const profiles = await profileService.listProfiles();
-  const p = profiles.find((x) => x.name === profileName);
-  if (p?.device_type === "barracuda") {
-    barr.stopBarracuda(profileName);
-    barracudaStdinOtpPromptSent.delete(profileName);
-  } else ofv.stopOpenfortivpn(profileName);
+  ofv.stopOpenfortivpn(profileName);
   const prev = status.get(profileName);
   status.set(profileName, "disconnected");
   clearTrafficPoll(profileName);
@@ -488,11 +419,9 @@ export async function stopVpn(profileName: string): Promise<void> {
 export function cleanupTempFilesOnQuit(): void {
   for (const name of status.keys()) disconnectReason.markUserInitiatedStop(name);
   ofv.stopEveryOpenfortivpnAndSweepTemp();
-  barr.stopEveryBarracudaAndSweepTemp();
 }
 
 /** Remove temp files not referenced by running VPN processes (e.g. after hiding the main window). */
 export function sweepDetachedVpnTempFiles(): void {
   ofv.sweepOrphanOpenfortivpnConfigs();
-  barr.sweepOrphanBarracudaTempDirs();
 }

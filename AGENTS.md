@@ -1,6 +1,6 @@
 # FortiVPN GUI — agent guide
 
-Desktop VPN client for **FortiGate** (`openfortivpn`) and optional **Barracuda**. **Electron** main process + **React 19** / **Material UI** renderer. Config under `~/.fortivpngui/` (OpenFortiGUI-compatible INI).
+Desktop VPN client for **FortiGate** (`openfortivpn`). **Electron** main process + **React 19** / **Material UI** renderer. Config under `~/.fortivpngui/` (OpenFortiGUI-compatible INI).
 
 ## Commands
 
