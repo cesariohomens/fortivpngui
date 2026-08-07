@@ -5,7 +5,7 @@ import { expandHome, NAME_VALIDATOR } from "./config.js";
 import { aes128Decrypt, aes128Encrypt } from "./crypto-aes.js";
 import { readMainSettings } from "./settings-service.js";
 import * as keychain from "./keychain-service.js";
-import type { VpnProfile } from "./types.js";
+import type { VpnProfile } from "../shared/types.js";
 import { parseTrustedCertDigests } from "./openfortivpn-runner.js";
 
 function iniBool(v: unknown): boolean {
@@ -60,7 +60,7 @@ function trustedCertFromIniCert(cert: Record<string, unknown>): string {
   return parseTrustedCertDigests(chunks.join(" ")).join(" ");
 }
 
-export async function readProfileFromFile(
+async function readProfileFromFile(
   filePath: string,
   origin: "local" | "global",
   includePassword: boolean
@@ -231,18 +231,4 @@ export async function deleteProfileLocal(name: string): Promise<boolean> {
     return true;
   }
   return false;
-}
-
-export async function renameProfileLocal(oldName: string, newName: string): Promise<void> {
-  const m = readMainSettings();
-  const dir = expandHome(m.localvpnprofiles);
-  const from = path.join(dir, `${oldName}.conf`);
-  const to = path.join(dir, `${newName}.conf`);
-  if (fs.existsSync(to)) throw new Error("Target profile exists");
-  fs.renameSync(from, to);
-  const pw = await keychain.keytarGet(`vpn:${oldName}`);
-  if (pw) {
-    await keychain.keytarDelete(`vpn:${oldName}`);
-    await keychain.keytarSet(`vpn:${newName}`, pw);
-  }
 }

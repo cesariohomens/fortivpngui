@@ -16,7 +16,7 @@ export function parseLanguageSetting(raw: unknown): LanguageSetting {
 }
 
 /** Map Electron / OS locale (e.g. `pt-PT`, `de-DE`) to a supported locale. */
-export function resolveLocaleFromSystem(systemLocale: string): LocaleCode {
+function resolveLocaleFromSystem(systemLocale: string): LocaleCode {
   const base = systemLocale.trim().toLowerCase().split(/[-_]/)[0];
   if (base === "pt") return "pt";
   if (base === "es") return "es";

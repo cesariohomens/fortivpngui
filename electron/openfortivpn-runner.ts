@@ -2,7 +2,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { spawn, spawnSync, ChildProcess } from "child_process";
-import type { VpnProfile } from "./types.js";
+import type { VpnProfile } from "../shared/types.js";
 import { readMainSettings } from "./settings-service.js";
 
 export interface OpenfortivpnLog {
@@ -32,7 +32,7 @@ export function parseTrustedCertDigests(raw: string | undefined | null): string[
 }
 
 /** Build openfortivpn-compatible config file (key names with hyphens per upstream). */
-export function buildOpenfortivpnConfig(profile: VpnProfile, password: string, otp?: string): string {
+function buildOpenfortivpnConfig(profile: VpnProfile, password: string, otp?: string): string {
   const lines: string[] = [];
   lines.push(`host = ${profile.gateway_host}`);
   lines.push(`port = ${profile.gateway_port || 443}`);
@@ -116,7 +116,7 @@ export function sweepOrphanOpenfortivpnConfigs(): void {
 }
 
 /** Remove leftover `run-*.conf` (crash, failed spawn, etc.). */
-export function sweepOpenfortivpnConfigDir(): void {
+function sweepOpenfortivpnConfigDir(): void {
   const dir = openfortivpnConfigDir();
   if (!fs.existsSync(dir)) return;
   let entries: fs.Dirent[];
@@ -160,10 +160,6 @@ export function resolveOpenfortivpnExecutable(): string | null {
   const r = spawnSync("which", ["openfortivpn"], { encoding: "utf8" });
   if (r.status === 0 && r.stdout.trim()) return r.stdout.trim();
   return null;
-}
-
-export function isOpenfortivpnRunning(name: string): boolean {
-  return running.has(name);
 }
 
 export function stopOpenfortivpn(name: string): void {

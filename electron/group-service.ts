@@ -3,7 +3,7 @@ import path from "path";
 import ini from "ini";
 import { expandHome, NAME_VALIDATOR } from "./config.js";
 import { readMainSettings } from "./settings-service.js";
-import type { VpnGroup } from "./types.js";
+import type { VpnGroup } from "../shared/types.js";
 
 function parseGroupIni(content: string): VpnGroup | null {
   const o = ini.parse(content) as Record<string, unknown>;
@@ -106,18 +106,4 @@ export async function duplicateGroup(sourceName: string): Promise<string> {
     globalMembers: [...g.globalMembers],
   });
   return newName;
-}
-
-export async function renameGroup(oldName: string, newName: string): Promise<void> {
-  const m = readMainSettings();
-  const dir = expandHome(m.localvpngroups);
-  const from = path.join(dir, `${oldName}.conf`);
-  const to = path.join(dir, `${newName}.conf`);
-  if (fs.existsSync(to)) throw new Error("Target exists");
-  const raw = fs.readFileSync(from, "utf8");
-  const g = parseGroupIni(raw);
-  if (!g) throw new Error("Invalid group file");
-  g.name = newName;
-  fs.unlinkSync(from);
-  await saveGroup(g);
 }

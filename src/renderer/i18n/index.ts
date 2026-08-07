@@ -11,7 +11,7 @@ export { en };
 
 const catalogs: Record<LocaleCode, Messages> = { en, pt, es, fr, it, de };
 
-export function getMessages(locale: LocaleCode): Messages {
+function getMessages(locale: LocaleCode): Messages {
   return catalogs[locale] ?? en;
 }
 

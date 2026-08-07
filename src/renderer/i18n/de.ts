@@ -32,16 +32,12 @@ export const de: Messages = {
   table: {
     status: "Status",
     name: "Name",
-    device: "Gerät",
     gateway: "Gateway",
     user: "Benutzer",
     traffic: "Traffic RX/TX",
     actions: "Aktionen",
     vpns: "VPNs",
     profileCount: "{count} Profile",
-  },
-  device: {
-    fortigate: "Fortigate",
   },
   profile: {
     localTitle: "Lokale VPNs",
@@ -54,7 +50,6 @@ export const de: Messages = {
     save: "Speichern",
     close: "Schließen",
     ok: "OK",
-    yes: "Ja",
     no: "Nein",
     enabled: "Aktiviert",
     default: "Standard",
@@ -166,9 +161,6 @@ export const de: Messages = {
   },
   disconnect: {
     title: "VPN-Verbindung verloren",
-    warning: "Warnung",
-    profile: "Profil",
-    reason: "Grund",
     details: "Letzte Protokollzeilen",
     noReconnect: "Die automatische Wiederverbindung ist für dieses Profil aus. Verbinden Sie erneut, wenn Sie möchten.",
     reconnectOn: "Dieses Profil versucht es alle {seconds}s; openfortivpn hat aufgegeben.",

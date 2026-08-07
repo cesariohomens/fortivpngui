@@ -5,11 +5,9 @@ export interface FvpnApi {
   listProfiles: () => Promise<VpnProfile[]>;
   saveProfile: (p: VpnProfile) => Promise<void>;
   deleteProfile: (name: string) => Promise<boolean>;
-  renameProfile: (oldName: string, newName: string) => Promise<void>;
   listGroups: () => Promise<VpnGroup[]>;
   saveGroup: (g: VpnGroup) => Promise<void>;
   deleteGroup: (name: string) => Promise<boolean>;
-  renameGroup: (oldName: string, newName: string) => Promise<void>;
   duplicateGroup: (name: string) => Promise<string>;
   getSettings: () => Promise<MainSettings>;
   saveSettings: (partial: Partial<MainSettings>) => Promise<MainSettings>;

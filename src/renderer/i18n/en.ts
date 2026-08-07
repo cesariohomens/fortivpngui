@@ -30,16 +30,12 @@ export const en = {
   table: {
     status: "Status",
     name: "Name",
-    device: "Device",
     gateway: "Gateway",
     user: "User",
     traffic: "Traffic RX/TX",
     actions: "Actions",
     vpns: "VPNs",
     profileCount: "{count} profiles",
-  },
-  device: {
-    fortigate: "Fortigate",
   },
   profile: {
     localTitle: "Local VPNs",
@@ -52,7 +48,6 @@ export const en = {
     save: "Save",
     close: "Close",
     ok: "OK",
-    yes: "Yes",
     no: "No",
     enabled: "Enabled",
     default: "Default",
@@ -164,9 +159,6 @@ export const en = {
   },
   disconnect: {
     title: "VPN connection lost",
-    warning: "Warning",
-    profile: "Profile",
-    reason: "Reason",
     details: "Last log lines",
     noReconnect: "Automatic reconnection is off for this profile. Connect again when you are ready.",
     reconnectOn: "This profile retries every {seconds}s; openfortivpn gave up.",

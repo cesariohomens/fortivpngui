@@ -1,7 +1,7 @@
 import path from "path";
 
 /** Project root when main runs from `dist-electron/electron/main.js`. */
-export function appRoot(): string {
+function appRoot(): string {
   return path.resolve(__dirname, "..", "..");
 }
 

@@ -13,7 +13,7 @@ import { resolveOpenfortivpnExecutable } from "./openfortivpn-runner.js";
 import { buildPlainTextLogHtml } from "./log-window-html.js";
 import { fromAppRoot } from "./app-root.js";
 import { quitAfterScreenshots, runScreenshotCapture, screenshotCaptureRequested } from "./screenshot-capture.js";
-import type { VpnStartCredentials } from "./types.js";
+import type { VpnStartCredentials } from "../shared/types.js";
 
 /** Isolate Electron userData (and single-instance lock) when capturing screenshots. */
 const captureOutDirEarly = process.env.FORTIVPNGUI_CAPTURE_SCREENSHOTS?.trim();
@@ -472,11 +472,6 @@ if (!gotLock) {
       void refreshTrayMenu();
       return deleted;
     });
-    ipcMain.handle("profiles:rename", async (_e, oldName: string, newName: string) => {
-      await profileService.renameProfileLocal(oldName, newName);
-      void refreshTrayMenu();
-    });
-
     ipcMain.handle("groups:list", () => groupService.listGroups());
     ipcMain.handle("groups:save", async (_e, g) => {
       await groupService.saveGroup(g);
@@ -487,11 +482,6 @@ if (!gotLock) {
       void refreshTrayMenu();
       return deleted;
     });
-    ipcMain.handle("groups:rename", async (_e, o: string, n: string) => {
-      await groupService.renameGroup(o, n);
-      void refreshTrayMenu();
-    });
-
     ipcMain.handle("groups:duplicate", async (_e, name: string) => {
       const newName = await groupService.duplicateGroup(name);
       void refreshTrayMenu();

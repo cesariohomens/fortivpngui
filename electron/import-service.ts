@@ -3,7 +3,7 @@ import path from "path";
 import ini from "ini";
 import { paths } from "./config.js";
 import { patchMainSettings } from "./settings-service.js";
-import type { MainSettings } from "./types.js";
+import type { MainSettings } from "../shared/types.js";
 
 function iniBool(v: unknown): boolean {
   if (v === true) return true;
@@ -13,7 +13,7 @@ function iniBool(v: unknown): boolean {
 }
 
 /** Read ~/.openfortigui/main.conf and return fields we can map into fortivpngui main.conf. */
-export function readOpenfortiguiMainPartial(): Partial<MainSettings> | null {
+function readOpenfortiguiMainPartial(): Partial<MainSettings> | null {
   const conf = path.join(paths.openfortiguiLegacy(), "main.conf");
   if (!fs.existsSync(conf)) return null;
   let raw: string;

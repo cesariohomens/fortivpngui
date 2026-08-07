@@ -49,7 +49,7 @@ export function feedCertFailureLine(profileName: string, line: string): CertFail
   return { profileName, raw, parsed };
 }
 
-export function parseCertFailureBuffer(buffer: string): ParsedCertFailure | null {
+function parseCertFailureBuffer(buffer: string): ParsedCertFailure | null {
   const digestM = buffer.match(/--trusted-cert\s+([0-9a-fA-F]{64})\b/);
   const digest = digestM ? digestM[1].toLowerCase() : "";
   if (!digest) return null;

@@ -12,7 +12,7 @@ function escapeHtml(raw: string): string {
     .replace(/'/g, "&#39;");
 }
 
-export function effectiveLogThemeTokens(): ThemeTokens {
+function effectiveLogThemeTokens(): ThemeTokens {
   const settings = readMainSettings();
   return themeTokensForMode(settings.theme_mode, nativeTheme.shouldUseDarkColors);
 }

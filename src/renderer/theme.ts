@@ -1,16 +1,5 @@
 import { alpha, createTheme, type Theme } from "@mui/material";
-import type { ThemeMode } from "../../shared/types";
-import { parseThemeMode } from "../../shared/theme";
-import {
-  darkTokens,
-  lightTokens,
-  resolveThemeMode,
-  type ResolvedThemeMode,
-  type ThemeTokens,
-} from "../../shared/theme-tokens";
-
-export type { ThemeMode, ResolvedThemeMode, ThemeTokens };
-export { parseThemeMode, darkTokens, lightTokens, resolveThemeMode };
+import type { ResolvedThemeMode, ThemeTokens } from "../../shared/theme-tokens";
 
 /** Subset used by App layout helpers (derived from ThemeTokens). */
 export interface AppColors {
@@ -23,9 +12,7 @@ export interface AppColors {
   text: string;
   muted: string;
   primary: string;
-  primaryContainer: string;
   secondaryContainer: string;
-  error: string;
   warning: string;
   connected: string;
   disconnected: string;
@@ -42,9 +29,7 @@ export function tokensToAppColors(t: ThemeTokens): AppColors {
     text: t.onSurface,
     muted: t.onSurfaceVariant,
     primary: t.primary,
-    primaryContainer: t.primaryContainer,
     secondaryContainer: t.secondaryContainer,
-    error: t.error,
     warning: t.tertiary,
     connected: t.connected,
     disconnected: t.disconnected,

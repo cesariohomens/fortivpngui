@@ -6,7 +6,8 @@ import { appendVpnLogLine } from "./vpn-file-logger.js";
 import * as certTracker from "./cert-failure-tracker.js";
 import * as disconnectReason from "./disconnect-reason.js";
 import fs from "fs";
-import type { VpnProfile, VpnStartCredentials, VpnTrafficStats } from "./types.js";
+import type { VpnStartCredentials, VpnTrafficStats } from "../shared/types.js";
+
 function normalizeVpnStartArg(input?: string | VpnStartCredentials): { username?: string; password?: string; otp?: string } {
   if (input == null) return {};
   if (typeof input === "string") return { otp: input };

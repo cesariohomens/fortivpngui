@@ -1,16 +1,14 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
-import type { VpnProfile, VpnGroup, MainSettings, VpnStartCredentials, VpnTrafficStats } from "./types.js";
+import type { VpnProfile, VpnGroup, MainSettings, VpnStartCredentials, VpnTrafficStats } from "../shared/types.js";
 
 contextBridge.exposeInMainWorld("fvpn", {
   openfortivpnPath: () => ipcRenderer.invoke("app:openfortivpnPath") as Promise<string | null>,
   listProfiles: () => ipcRenderer.invoke("profiles:list") as Promise<VpnProfile[]>,
   saveProfile: (p: VpnProfile) => ipcRenderer.invoke("profiles:save", p) as Promise<void>,
   deleteProfile: (name: string) => ipcRenderer.invoke("profiles:delete", name) as Promise<boolean>,
-  renameProfile: (oldName: string, newName: string) => ipcRenderer.invoke("profiles:rename", oldName, newName) as Promise<void>,
   listGroups: () => ipcRenderer.invoke("groups:list") as Promise<VpnGroup[]>,
   saveGroup: (g: VpnGroup) => ipcRenderer.invoke("groups:save", g) as Promise<void>,
   deleteGroup: (name: string) => ipcRenderer.invoke("groups:delete", name) as Promise<boolean>,
-  renameGroup: (oldName: string, newName: string) => ipcRenderer.invoke("groups:rename", oldName, newName) as Promise<void>,
   duplicateGroup: (name: string) => ipcRenderer.invoke("groups:duplicate", name) as Promise<string>,
   getSettings: () => ipcRenderer.invoke("settings:get") as Promise<MainSettings>,
   saveSettings: (partial: Partial<MainSettings>) => ipcRenderer.invoke("settings:save", partial) as Promise<MainSettings>,

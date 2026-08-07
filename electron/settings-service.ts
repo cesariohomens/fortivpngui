@@ -2,7 +2,7 @@ import fs from "fs";
 import path from "path";
 import ini from "ini";
 import { expandHome, paths, DEFAULT_AES_IV, DEFAULT_AES_KEY, toTilde } from "./config.js";
-import type { MainSettings, ThemeMode } from "./types.js";
+import type { MainSettings, ThemeMode } from "../shared/types.js";
 
 function parseLanguageSetting(raw: unknown): MainSettings["language"] {
   const s = String(raw ?? "")
@@ -104,7 +104,7 @@ export function readMainSettings(): MainSettings {
   };
 }
 
-export function writeMainSettings(s: MainSettings): void {
+function writeMainSettings(s: MainSettings): void {
   const obj: Record<string, Record<string, string | boolean | number>> = {
     main: {
       debug: s.debug,
@@ -162,7 +162,7 @@ export function readOpenfortiguiGwCertCache(): Record<string, string> {
   }
 }
 
-export function writeGwCertCache(map: Record<string, string>): void {
+function writeGwCertCache(map: Record<string, string>): void {
   const body = ini.stringify({ gw_cert_hashes: map });
   fs.writeFileSync(paths.gwCertCache(), body, { mode: 0o600 });
 }

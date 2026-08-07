@@ -66,7 +66,7 @@ PNG files live in [`docs/images/`](docs/images/). Regenerate with `npm run scree
 | `electron/` | Main process: window, tray, IPC, VPN runner (`openfortivpn-runner`), profiles/groups/settings/import, preload bridge |
 | `src/renderer/` | React UI (`App.tsx`), Vite entry |
 | `shared/` | Types and constants shared at build time (`constants.ts` imports `package.json` for version and metadata) |
-| `resources/` | Packaged assets: `sudo/` template, `deb/postinst.sh` & `deb/postrm.sh`, icons |
+| `resources/` | Packaged assets: `sudo/` template, `deb/` and `rpm/` maintainer scripts, icons |
 | `dist/` / `dist-electron/` | Build output (ignored by git); `npm run build` fills these |
 
 ---

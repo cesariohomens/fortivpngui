@@ -32,16 +32,12 @@ export const pt: Messages = {
   table: {
     status: "Estado",
     name: "Nome",
-    device: "Dispositivo",
     gateway: "Gateway",
     user: "Utilizador",
     traffic: "Tráfego RX/TX",
     actions: "Ações",
     vpns: "VPNs",
     profileCount: "{count} perfis",
-  },
-  device: {
-    fortigate: "Fortigate",
   },
   profile: {
     localTitle: "VPNs locais",
@@ -54,7 +50,6 @@ export const pt: Messages = {
     save: "Guardar",
     close: "Fechar",
     ok: "OK",
-    yes: "Sim",
     no: "Não",
     enabled: "Ativado",
     default: "Predefinido",
@@ -166,9 +161,6 @@ export const pt: Messages = {
   },
   disconnect: {
     title: "Ligação VPN perdida",
-    warning: "Aviso",
-    profile: "Perfil",
-    reason: "Motivo",
     details: "Últimas linhas do registo",
     noReconnect: "A reconexão automática está desligada neste perfil. Ligue de novo quando quiser.",
     reconnectOn: "Este perfil tenta a cada {seconds}s; o openfortivpn desistiu.",

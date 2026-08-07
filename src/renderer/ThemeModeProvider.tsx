@@ -3,15 +3,12 @@ import { CssBaseline, GlobalStyles, ThemeProvider } from "@mui/material";
 import { parseThemeMode } from "../../shared/theme";
 import type { ThemeMode } from "../../shared/types";
 import {
-  createAppTheme,
   darkTokens,
   lightTokens,
   resolveThemeMode,
-  tokensToAppColors,
-  THEME_MODE_STORAGE_KEY,
-  type AppColors,
   type ResolvedThemeMode,
-} from "./theme";
+} from "../../shared/theme-tokens";
+import { createAppTheme, tokensToAppColors, THEME_MODE_STORAGE_KEY, type AppColors } from "./theme";
 
 interface ThemeModeContextValue {
   mode: ThemeMode;
