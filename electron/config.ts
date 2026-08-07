@@ -23,13 +23,14 @@ export function toTilde(abs: string): string {
 }
 
 export const paths = {
-  baseDir: () => path.join(os.homedir(), ".fortivpngui"),
-  mainConf: () => path.join(os.homedir(), ".fortivpngui", "main.conf"),
-  gwCertCache: () => path.join(os.homedir(), ".fortivpngui", "gw_cert.cache"),
-  localProfiles: () => path.join(os.homedir(), ".fortivpngui", "vpnprofiles"),
+  /** Override with FORTIVPNGUI_CONFIG_DIR for tests / screenshot capture (isolated from ~/.fortivpngui). */
+  baseDir: () => process.env.FORTIVPNGUI_CONFIG_DIR?.trim() || path.join(os.homedir(), ".fortivpngui"),
+  mainConf: () => path.join(paths.baseDir(), "main.conf"),
+  gwCertCache: () => path.join(paths.baseDir(), "gw_cert.cache"),
+  localProfiles: () => path.join(paths.baseDir(), "vpnprofiles"),
   globalProfiles: () => "/etc/fortivpngui/vpnprofiles",
-  localGroups: () => path.join(os.homedir(), ".fortivpngui", "vpngroups"),
-  logsDir: () => path.join(os.homedir(), ".fortivpngui", "logs"),
-  vpnLogsDir: () => path.join(os.homedir(), ".fortivpngui", "logs", "vpn"),
+  localGroups: () => path.join(paths.baseDir(), "vpngroups"),
+  logsDir: () => path.join(paths.baseDir(), "logs"),
+  vpnLogsDir: () => path.join(paths.baseDir(), "logs", "vpn"),
   openfortiguiLegacy: () => path.join(os.homedir(), ".openfortigui"),
 };

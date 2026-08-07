@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain, Menu, nativeImage, nativeTheme, Tray, dialog, shell } from "electron";
 import path from "path";
 import fs from "fs";
+import os from "os";
 import { pathToFileURL } from "node:url";
 import { initMainConfig, readMainSettings, patchMainSettings, expandHome } from "./settings-service.js";
 import * as profileService from "./profile-service.js";
@@ -11,7 +12,16 @@ import { CHANGELOG_REV } from "./config.js";
 import { resolveOpenfortivpnExecutable } from "./openfortivpn-runner.js";
 import { buildPlainTextLogHtml } from "./log-window-html.js";
 import { fromAppRoot } from "./app-root.js";
+import { quitAfterScreenshots, runScreenshotCapture, screenshotCaptureRequested } from "./screenshot-capture.js";
 import type { VpnStartCredentials } from "./types.js";
+
+/** Isolate Electron userData (and single-instance lock) when capturing screenshots. */
+const captureOutDirEarly = process.env.FORTIVPNGUI_CAPTURE_SCREENSHOTS?.trim();
+if (captureOutDirEarly) {
+  const userData = path.join(os.tmpdir(), `fortivpngui-capture-${process.pid}`);
+  fs.mkdirSync(userData, { recursive: true });
+  app.setPath("userData", userData);
+}
 
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
@@ -382,11 +392,21 @@ if (!gotLock) {
       if (readMainSettings().theme_mode === "system") reloadOpenLogWindows();
     });
     createWindow();
-    buildTray();
-    vpn.setTrayRef(tray);
-    vpn.setStatusChangeHook(() => {
-      void refreshTrayMenu();
-    });
+    const captureDir = screenshotCaptureRequested();
+    if (captureDir && mainWindow) {
+      void runScreenshotCapture(mainWindow, captureDir)
+        .then(() => quitAfterScreenshots())
+        .catch((err) => {
+          console.error("[screenshots] capture failed:", err);
+          app.exit(1);
+        });
+    } else {
+      buildTray();
+      vpn.setTrayRef(tray);
+      vpn.setStatusChangeHook(() => {
+        void refreshTrayMenu();
+      });
+    }
     vpn.setGatewayCertUiHandler((ev) => {
       if (ev.kind === "blocked") {
         dialog.showErrorBox("Gateway certificate validation failed", ev.message);

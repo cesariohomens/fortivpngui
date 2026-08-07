@@ -23,7 +23,7 @@ Desktop VPN client for **FortiGate** (system [`openfortivpn`](https://github.com
 
 ## Screenshots
 
-PNG files live in [`docs/images/`](docs/images/). Replace them anytime; the table below lists every image in that folder.
+PNG files live in [`docs/images/`](docs/images/). Regenerate with `npm run screenshots` (English UI, isolated config).
 
 | Screenshot | Screenshot |
 |:---:|:---:|
@@ -31,6 +31,7 @@ PNG files live in [`docs/images/`](docs/images/). Replace them anytime; the tabl
 | ![](docs/images/image03.png) | ![](docs/images/image04.png) |
 | ![](docs/images/image05.png) | ![](docs/images/image06.png) |
 | ![](docs/images/image07.png) | ![](docs/images/image08.png) |
+
 
 ---
 

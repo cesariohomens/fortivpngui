@@ -72,3 +72,7 @@ contextBridge.exposeInMainWorld("fvpn", {
     return () => ipcRenderer.removeListener("vpn:disconnect-warning", fn);
   },
 });
+
+contextBridge.exposeInMainWorld("fvpnCapture", {
+  enabled: Boolean(process.env.FORTIVPNGUI_CAPTURE_SCREENSHOTS?.trim()),
+});

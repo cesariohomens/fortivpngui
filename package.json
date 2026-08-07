@@ -19,6 +19,7 @@
     "dist": "npm run build && electron-builder --linux deb rpm",
     "dist:deb": "npm run build && electron-builder --linux deb",
     "dist:rpm": "npm run build && electron-builder --linux rpm",
+    "screenshots": "node scripts/capture-screenshots.mjs",
     "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {

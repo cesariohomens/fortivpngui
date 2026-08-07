@@ -312,6 +312,7 @@ export default function App() {
     setWizardUseStore(settings.use_system_password_store);
     if (settingsPromptsDone.current) return;
     settingsPromptsDone.current = true;
+    if (window.fvpnCapture?.enabled) return;
     if (!settings.setupwizard) setWizardOpen(true);
     if (settings.changelogrev_read < CHANGELOG_REV) setChangelogOpen(true);
   }, [settings, setThemeMode, setLanguage]);
@@ -571,6 +572,58 @@ export default function App() {
     setShowProfilePassword(false);
     setProfileOpen(true);
   };
+
+  useEffect(() => {
+    if (!window.fvpnCapture?.enabled) return;
+    window.__fvpnUi = {
+      setView,
+      setThemeMode,
+      setLanguage,
+      closeOverlays: () => {
+        setAboutOpen(false);
+        setChangelogOpen(false);
+        setWizardOpen(false);
+        setProfileOpen(false);
+        setGroupOpen(false);
+        setDisconnectWarn(null);
+        setGwCertDlg(null);
+        setLoginOpen(false);
+        setImportResultText(null);
+        setNotifyText(null);
+        setProfileCtx(null);
+        setAddMenuAnchor(null);
+      },
+      openAbout: () => {
+        setChangelogOpen(false);
+        setWizardOpen(false);
+        setProfileOpen(false);
+        setAboutOpen(true);
+      },
+      openChangelog: () => {
+        setAboutOpen(false);
+        setWizardOpen(false);
+        setProfileOpen(false);
+        setChangelogOpen(true);
+      },
+      openWizard: (step = 0) => {
+        setAboutOpen(false);
+        setChangelogOpen(false);
+        setProfileOpen(false);
+        setWizardStep(step);
+        setWizardOpen(true);
+      },
+      openProfileEditor: () => {
+        setAboutOpen(false);
+        setChangelogOpen(false);
+        setWizardOpen(false);
+        openNewProfile();
+      },
+      refresh,
+    };
+    return () => {
+      delete window.__fvpnUi;
+    };
+  });
 
   const editProfile = (p: VpnProfile) => {
     if (p.origin === "global") return;

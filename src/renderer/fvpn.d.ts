@@ -44,6 +44,18 @@ export interface FvpnApi {
 declare global {
   interface Window {
     fvpn: FvpnApi;
+    fvpnCapture?: { enabled: boolean };
+    __fvpnUi?: {
+      setView: (view: "vpn" | "groups" | "settings") => void;
+      setThemeMode: (mode: "dark" | "light" | "system") => void;
+      setLanguage: (language: "en" | "pt" | "es" | "fr" | "it" | "de" | "system") => void;
+      closeOverlays: () => void;
+      openAbout: () => void;
+      openChangelog: () => void;
+      openWizard: (step?: number) => void;
+      openProfileEditor: () => void;
+      refresh: () => Promise<void>;
+    };
   }
 }
 
