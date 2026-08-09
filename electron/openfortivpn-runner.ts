@@ -7,6 +7,7 @@ import { readMainSettings } from "./settings-service.js";
 import {
   detectOpenfortivpnVersion,
   resolveOpenfortivpnExecutable,
+  supportsCliOption,
   supportsConfigKey,
 } from "./openfortivpn-capabilities.js";
 
@@ -38,7 +39,10 @@ export function parseTrustedCertDigests(raw: string | undefined | null): string[
   return out;
 }
 
-export interface BuiltOpenfortivpnConfig {
+/** Upstream default for `--saml-login` when no port is given (see `main.c`). */
+const SAML_DEFAULT_PORT = 8020;
+
+interface BuiltOpenfortivpnConfig {
   config: string;
   /** Keys left out because the installed openfortivpn is too old to parse them. */
   skipped: string[];
@@ -93,9 +97,12 @@ function buildOpenfortivpnConfig(profile: VpnProfile, password: string, otp?: st
   if (profile.no_ftm_push) push("no-ftm-push", 1);
 
   /* Version-gated keys last, oldest first. */
+  if (profile.pinentry?.trim()) push("pinentry", profile.pinentry.trim());
   if (profile.seclevel1) push("seclevel-1", 1);
   const minTls = (profile.min_tls || "").trim();
   if (minTls && !/^default$/i.test(minTls)) push("min-tls", minTls);
+  const useResolvconf = (profile.use_resolvconf || "").trim();
+  if (useResolvconf && !/^default$/i.test(useResolvconf)) push("use-resolvconf", useResolvconf === "1" ? 1 : 0);
   if (profile.pem_passphrase) push("pem-passphrase", profile.pem_passphrase);
   if (profile.user_agent?.trim()) push("user-agent", profile.user_agent.trim());
   if (profile.hostcheck?.trim()) push("hostcheck", profile.hostcheck.trim());
@@ -103,6 +110,7 @@ function buildOpenfortivpnConfig(profile: VpnProfile, password: string, otp?: st
   /* Upstream default depends on the pppd it was built against (0 below pppd 2.5.0, 1 from 2.5.0), so write both states. */
   push("pppd-accept-remote", profile.pppd_accept_remote ? 1 : 0);
   if (profile.sni?.trim()) push("sni", profile.sni.trim());
+  if (profile.saml_login) push("saml-login", profile.saml_port > 0 ? Math.trunc(profile.saml_port) : SAML_DEFAULT_PORT);
 
   return { config: lines.join("\n") + "\n", skipped };
 }
@@ -225,15 +233,6 @@ export function startOpenfortivpn(
   const built = buildOpenfortivpnConfig(profile, password, otp);
   fs.writeFileSync(configPath, built.config, { mode: 0o600 });
 
-  if (built.skipped.length > 0) {
-    const v = detectOpenfortivpnVersion();
-    onLog({
-      profileName: name,
-      line: `[fortivpngui] openfortivpn ${v?.raw ?? "(unknown version)"} does not support these options, they were not applied: ${built.skipped.join(", ")}.`,
-      stream: "stderr",
-    });
-  }
-
   const digests = parseTrustedCertDigests(profile.trusted_cert);
   const rawTc = profile.trusted_cert?.trim();
   if (rawTc && digests.length === 0) {
@@ -249,6 +248,26 @@ export function startOpenfortivpn(
   if (profile.debug) args.push("-v");
   if (otp) {
     args.push("--otp", otp);
+  }
+
+  /* `ifname` has no config-file key upstream, so it can only go on argv. */
+  const ifname = profile.ifname?.trim();
+  if (ifname) {
+    if (supportsCliOption("ifname")) args.push(`--ifname=${ifname}`);
+    else built.skipped.push("--ifname");
+  }
+  const cookie = profile.cookie?.trim();
+  const useCookie = Boolean(cookie) && supportsCliOption("cookie-on-stdin");
+  if (cookie && !useCookie) built.skipped.push("--cookie-on-stdin");
+  if (useCookie) args.push("--cookie-on-stdin");
+
+  if (built.skipped.length > 0) {
+    const v = detectOpenfortivpnVersion();
+    onLog({
+      profileName: name,
+      line: `[fortivpngui] openfortivpn ${v?.raw ?? "(unknown version)"} does not support these options, they were not applied: ${built.skipped.join(", ")}.`,
+      stream: "stderr",
+    });
   }
 
   const bin = resolveOpenfortivpnExecutable();
@@ -270,6 +289,15 @@ export function startOpenfortivpn(
     /** pipe stdin so FortiGate 2FA can read the token like an interactive terminal (`read_password`). */
     stdio: ["pipe", "pipe", "pipe"],
   });
+
+  /* `--cookie-on-stdin` reads one line; argv would expose the session cookie in the process list. */
+  if (useCookie && cookie) {
+    try {
+      proc.stdin?.write(`${cookie}\n`, "utf8");
+    } catch (e) {
+      onLog({ profileName: name, line: `[fortivpngui] Failed to send the cookie on stdin: ${(e as Error).message}`, stream: "stderr" });
+    }
+  }
 
   const push = (stream: "stdout" | "stderr", chunk: Buffer) => {
     const text = chunk.toString("utf8");

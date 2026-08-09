@@ -25,11 +25,22 @@ export interface VpnProfile {
   gateway_port: number;
   username: string;
   password: string;
-  otp: string;
+  /** openfortivpn `--cookie-on-stdin`: SVPNCOOKIE used instead of username/password. Fed on stdin, never on argv. */
+  cookie: string;
+  /** openfortivpn `pinentry` (>= 1.10.0): program asked for the password instead of storing one. */
+  pinentry: string;
+  /** openfortivpn `saml-login` (>= 1.23.0): authenticate through the gateway's SAML flow. */
+  saml_login: boolean;
+  /** Local port for the SAML redirect web server (`saml-login = <port>`); 0 uses the upstream default of 8020. */
+  saml_port: number;
   realm: string;
   set_routes: boolean;
   set_dns: boolean;
   half_internet_routers: boolean;
+  /** openfortivpn `use-resolvconf` (>= 1.14.0): `default` leaves upstream's choice, otherwise `1` or `0`. */
+  use_resolvconf: string;
+  /** openfortivpn `--ifname`: bind the tunnel to a host interface. Command line only, unlike `pppd_ifname`. */
+  ifname: string;
   /** openfortivpn `persistent`: seconds between reconnect attempts. 0 disables auto-reconnect (user reconnects manually). */
   persistent: number;
   ca_file: string;
@@ -38,7 +49,6 @@ export interface VpnProfile {
   /** openfortivpn `pem-passphrase`: pass phrase for an encrypted `user_key` (>= 1.16.0). */
   pem_passphrase: string;
   trusted_cert: string;
-  verify_cert: boolean;
   debug: boolean;
   autostart: boolean;
   always_ask_otp: boolean;
@@ -92,8 +102,6 @@ export interface MainSettings {
   localvpnprofiles: string;
   localvpngroups: string;
   logs: string;
-  initd: string;
-  sudopresenv: boolean;
   disable_notifications: boolean;
   connect_on_dblclick: boolean;
   /** OpenFortiGUI `main/show_search`: show profile search field. */

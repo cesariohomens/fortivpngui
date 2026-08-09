@@ -33,6 +33,8 @@ export interface FvpnApi {
   onVpnStats: (cb: (ev: { name: string; stats: VpnTrafficStats }) => void) => () => void;
   onGatewayCertPrompt: (cb: (ev: { profileName: string; digest: string; body: string }) => void) => () => void;
   onFortigateStdinOtpPrompt: (cb: (ev: { name: string }) => void) => () => void;
+  /** `--saml-login`: the gateway login page was opened in the browser and openfortivpn waits for the redirect. */
+  onVpnSamlLoginUrl: (cb: (ev: { name: string; url: string }) => void) => () => void;
   /** Tunnel dropped without the user asking for it: `reasonKey` maps to a `disconnect.*` message. */
   onVpnDisconnectWarning: (
     cb: (ev: { name: string; reasonKey: string; detail: string; wasConnected: boolean }) => void

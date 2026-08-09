@@ -32,6 +32,7 @@ export interface OpenfortivpnVersion {
 const CONFIG_KEY_MIN_VERSION: Record<string, [number, number]> = {
   "min-tls": [1, 10],
   "seclevel-1": [1, 10],
+  pinentry: [1, 10],
   "use-resolvconf": [1, 14],
   "pem-passphrase": [1, 16],
   "user-agent": [1, 16],
@@ -39,9 +40,10 @@ const CONFIG_KEY_MIN_VERSION: Record<string, [number, number]> = {
   "check-virtual-desktop": [1, 16],
   "pppd-accept-remote": [1, 21],
   sni: [1, 22],
+  "saml-login": [1, 23],
 };
 
-let cache: { bin: string | null; version: OpenfortivpnVersion | null } | null = null;
+let cache: { bin: string | null; version: OpenfortivpnVersion | null; cliOptions: Set<string> | null } | null = null;
 
 function parseVersion(raw: string): OpenfortivpnVersion | null {
   const m = raw.match(/(\d+)\.(\d+)(?:\.(\d+))?/);
@@ -54,25 +56,46 @@ function parseVersion(raw: string): OpenfortivpnVersion | null {
   };
 }
 
-/** Version of the openfortivpn that will actually be spawned, or null when it cannot be determined. */
-export function detectOpenfortivpnVersion(): OpenfortivpnVersion | null {
-  const bin = resolveOpenfortivpnExecutable();
-  if (cache && cache.bin === bin) return cache.version;
-  let version: OpenfortivpnVersion | null = null;
-  if (bin) {
-    try {
-      const r = spawnSync(bin, ["--version"], { encoding: "utf8", timeout: 5000 });
-      version = parseVersion(`${r.stdout || ""}\n${r.stderr || ""}`);
-    } catch {
-      version = null;
-    }
-  }
-  cache = { bin, version };
-  return version;
+/** Long options the installed binary advertises in `--help`, or null when `--help` could not be read. */
+function parseCliOptions(help: string): Set<string> | null {
+  const found = new Set<string>();
+  for (const m of help.matchAll(/--([a-z0-9-]+)/g)) found.add(m[1]);
+  return found.size > 0 ? found : null;
 }
 
-export function resetOpenfortivpnVersionCache(): void {
-  cache = null;
+function probe(): { version: OpenfortivpnVersion | null; cliOptions: Set<string> | null } {
+  const bin = resolveOpenfortivpnExecutable();
+  if (cache && cache.bin === bin) return cache;
+  let version: OpenfortivpnVersion | null = null;
+  let cliOptions: Set<string> | null = null;
+  if (bin) {
+    try {
+      const v = spawnSync(bin, ["--version"], { encoding: "utf8", timeout: 5000 });
+      version = parseVersion(`${v.stdout || ""}\n${v.stderr || ""}`);
+      const h = spawnSync(bin, ["--help"], { encoding: "utf8", timeout: 5000 });
+      cliOptions = parseCliOptions(`${h.stdout || ""}\n${h.stderr || ""}`);
+    } catch {
+      /* keep whatever was parsed before the failure */
+    }
+  }
+  cache = { bin, version, cliOptions };
+  return cache;
+}
+
+/** Version of the openfortivpn that will actually be spawned, or null when it cannot be determined. */
+export function detectOpenfortivpnVersion(): OpenfortivpnVersion | null {
+  return probe().version;
+}
+
+/**
+ * Whether the installed openfortivpn accepts a command-line option, read from its own `--help`.
+ * An unknown argv option makes openfortivpn exit before connecting, so options that only exist on argv
+ * (`--ifname`, `--cookie-on-stdin`) are checked this way instead of against a version table.
+ */
+export function supportsCliOption(name: string): boolean {
+  const opts = probe().cliOptions;
+  if (!opts) return true;
+  return opts.has(name);
 }
 
 /**

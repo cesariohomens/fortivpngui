@@ -40,8 +40,6 @@ function defaultMain(): MainSettings {
     localvpnprofiles: toTilde(paths.localProfiles()),
     localvpngroups: toTilde(paths.localGroups()),
     logs: toTilde(paths.logsDir()),
-    initd: "/etc/init.d/fortivpngui",
-    sudopresenv: false,
     disable_notifications: false,
     connect_on_dblclick: false,
     show_search: false,
@@ -78,7 +76,6 @@ export function readMainSettings(): MainSettings {
   const o = ini.parse(raw) as Record<string, Record<string, string>>;
   const main = o.main || {};
   const p = o.paths || {};
-  const checks = o.checks || {};
   const gui = o.gui || {};
   return {
     debug: iniBool(main.debug),
@@ -94,8 +91,6 @@ export function readMainSettings(): MainSettings {
     localvpnprofiles: p.localvpnprofiles || defaultMain().localvpnprofiles,
     localvpngroups: p.localvpngroups || defaultMain().localvpngroups,
     logs: p.logs || defaultMain().logs,
-    initd: p.initd || defaultMain().initd,
-    sudopresenv: iniBool(checks.sudopresenv),
     disable_notifications: iniBool(gui.disable_notifications),
     connect_on_dblclick: iniBool(gui.connect_on_dblclick),
     show_search: iniBool(main.show_search),
@@ -123,9 +118,7 @@ function writeMainSettings(s: MainSettings): void {
       localvpnprofiles: s.localvpnprofiles,
       localvpngroups: s.localvpngroups,
       logs: s.logs,
-      initd: s.initd,
     },
-    checks: { sudopresenv: s.sudopresenv },
     gui: {
       disable_notifications: s.disable_notifications,
       connect_on_dblclick: s.connect_on_dblclick,

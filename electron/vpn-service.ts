@@ -1,4 +1,4 @@
-import { BrowserWindow, Notification, Tray } from "electron";
+import { BrowserWindow, Notification, Tray, shell } from "electron";
 import * as profileService from "./profile-service.js";
 import * as ofv from "./openfortivpn-runner.js";
 import * as settingsService from "./settings-service.js";
@@ -20,6 +20,8 @@ function normalizeVpnStartArg(input?: string | VpnStartCredentials): { username?
 
 /** One IPC per Fortigate OTP cycle until explicit reset, reconnect cycle, start, or stop. */
 const fortigateStdinOtpPromptSent = new Set<string>();
+/** One browser tab per connect attempt, even though openfortivpn may log the URL again on a reconnect cycle. */
+const samlLoginUrlOpened = new Set<string>();
 const otpReconnectCycleDebounced = new Map<string, number>();
 const OTP_RECONNECT_DEBOUNCE_MS = 2000;
 
@@ -72,6 +74,7 @@ function beginOtpReconnectCycle(profileName: string): void {
   if (now - last < OTP_RECONNECT_DEBOUNCE_MS) return;
   otpReconnectCycleDebounced.set(profileName, now);
   fortigateStdinOtpPromptSent.delete(profileName);
+  samlLoginUrlOpened.delete(profileName);
 }
 
 /** User chose to request a new OTP after a failed attempt. */
@@ -273,10 +276,30 @@ function maybeEmitFortigateStdinOtpPrompt(profileName: string, line: string, otp
   emit("vpn:fortigate-stdin-otp-prompt", { name: profileName });
 }
 
+/**
+ * `--saml-login` starts a local redirect server and logs `Authenticate at '<url>'` (`http_server.c: print_url`).
+ * On a terminal the user would click that URL, so open it in the browser and tell the renderer about it.
+ */
+function maybeOpenSamlLoginUrl(profileName: string, line: string): void {
+  const url = line.match(/Authenticate at '(https?:\/\/[^']+)'/i)?.[1];
+  if (!url) return;
+  if (samlLoginUrlOpened.has(profileName)) return;
+  samlLoginUrlOpened.add(profileName);
+  emit("vpn:saml-login-url", { name: profileName, url });
+  void shell.openExternal(url).catch((e: unknown) => {
+    emit("vpn:log", {
+      name: profileName,
+      line: `[fortivpngui] Could not open the SAML login page (${e instanceof Error ? e.message : String(e)}). Open it manually: ${url}`,
+      stream: "stderr",
+    });
+  });
+}
+
 function processFortigateLogLine(profileName: string, line: string, stream: "stdout" | "stderr", otpPrompt?: string): void {
   appendVpnLogLine(profileName, stream, line);
   disconnectReason.recordDisconnectHintLine(profileName, line);
   if (isOpenfortivpnReconnectCycleLine(line)) beginOtpReconnectCycle(profileName);
+  maybeOpenSamlLoginUrl(profileName, line);
   maybeEmitFortigateStdinOtpPrompt(profileName, line, otpPrompt);
   const iface = line.match(/\bInterface\s+([^\s.]+)\s+is\s+UP\b/i)?.[1];
   if (iface) startTrafficPoll(profileName, iface);
@@ -369,6 +392,7 @@ export async function startVpn(profileName: string, arg?: string | VpnStartCrede
   emit("vpn:status", { name: profileName, state: "connecting" });
   clearTrustedAutoSaveForProfile(profileName);
   fortigateStdinOtpPromptSent.delete(profileName);
+  samlLoginUrlOpened.delete(profileName);
   const trustedMerged = effectiveTrustedCertField(p);
   let loginPassword = effectivePassword;
   let otpArg: string | undefined;
@@ -408,6 +432,7 @@ export async function startVpn(profileName: string, arg?: string | VpnStartCrede
 export async function stopVpn(profileName: string): Promise<void> {
   disconnectReason.markUserInitiatedStop(profileName);
   fortigateStdinOtpPromptSent.delete(profileName);
+  samlLoginUrlOpened.delete(profileName);
   ofv.stopOpenfortivpn(profileName);
   const prev = status.get(profileName);
   status.set(profileName, "disconnected");

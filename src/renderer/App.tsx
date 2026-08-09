@@ -82,18 +82,22 @@ const emptyProfile = (): VpnProfile => ({
   gateway_port: 10443,
   username: "",
   password: "",
-  otp: "",
+  cookie: "",
+  pinentry: "",
+  saml_login: false,
+  saml_port: 0,
   realm: "",
   set_routes: true,
   set_dns: false,
   half_internet_routers: false,
+  use_resolvconf: "default",
+  ifname: "",
   persistent: 0,
   ca_file: "",
   user_cert: "",
   user_key: "",
   pem_passphrase: "",
   trusted_cert: "",
-  verify_cert: false,
   debug: false,
   autostart: false,
   always_ask_otp: false,
@@ -117,6 +121,11 @@ const emptyProfile = (): VpnProfile => ({
   check_virtual_desktop: "",
   trust_all_gw_certs: false,
 });
+
+/** Cookie and SAML profiles never see a FortiGate token prompt, so the OTP dialog must stay closed for them. */
+function usesTokenlessAuth(p: VpnProfile): boolean {
+  return p.saml_login || Boolean(p.cookie.trim());
+}
 
 function profileKey(p: VpnProfile): string {
   return `${p.origin}:${p.name}`;
@@ -230,6 +239,7 @@ export default function App() {
   const [certificateEnabled, setCertificateEnabled] = useState(false);
   const [showProfilePassword, setShowProfilePassword] = useState(false);
   const [showPemPassphrase, setShowPemPassphrase] = useState(false);
+  const [showCookie, setShowCookie] = useState(false);
 
   const [groupOpen, setGroupOpen] = useState(false);
   const [groupDraftName, setGroupDraftName] = useState("");
@@ -347,6 +357,11 @@ export default function App() {
   useEffect(() => window.fvpn.onGatewayCertPrompt((ev) => setGwCertDlg(ev)), []);
 
   useEffect(
+    () => window.fvpn.onVpnSamlLoginUrl((ev) => notify(t("notify.samlLoginOpened", { name: ev.name }))),
+    [notify, t]
+  );
+
+  useEffect(
     () =>
       window.fvpn.onVpnDisconnectWarning((ev) => {
         /** An open OTP or certificate dialog already explains this failure; do not stack a second modal. */
@@ -391,6 +406,7 @@ export default function App() {
       const profile = profilesRef.current.find((x) => x.name === name);
       if (!profile) return;
       if (profile.always_ask_otp) return;
+      if (usesTokenlessAuth(profile)) return;
       setLoginOtpPhase("prompt");
       setLoginOtpViaStdin(true);
       setLoginChallengeExplicitOtp(true);
@@ -461,6 +477,7 @@ export default function App() {
       if (loginOpenRef.current) continue;
       if (maybeAuth && fortigateLastConnectHadOtp.current[e.name]) continue;
       if (profile.always_ask_otp) continue;
+      if (usesTokenlessAuth(profile)) continue;
 
       const dismissed = fortiOtpChallengeDismissedAt.current[e.name];
       if (dismissed !== undefined && e.t <= dismissed) continue;
@@ -652,10 +669,12 @@ export default function App() {
     }
     setProfileDraft({ ...p });
     setProfileOriginalName(p.name);
-    setCredentialsEnabled(Boolean(p.username || p.password));
-    setCertificateEnabled(Boolean(p.ca_file || p.user_cert || p.user_key));
+    setCredentialsEnabled(Boolean(p.username || p.password || p.pinentry));
+    setCertificateEnabled(Boolean(p.ca_file || p.user_cert || p.user_key || p.pem_passphrase));
     setProfileEditorTab(0);
     setShowProfilePassword(false);
+    setShowPemPassphrase(false);
+    setShowCookie(false);
     setProfileOpen(true);
   };
 
@@ -673,7 +692,9 @@ export default function App() {
       notify(t("notify.missingGatewayPort"));
       return;
     }
-    if (credentialsEnabled && !profileDraft.username.trim()) {
+    /** openfortivpn accepts a cookie or a SAML login in place of a username (`main.c` argument check). */
+    const authWithoutUsername = Boolean(profileDraft.cookie.trim()) || profileDraft.saml_login;
+    if (credentialsEnabled && !authWithoutUsername && !profileDraft.username.trim()) {
       notify(t("notify.missingUsername"));
       return;
     }
@@ -682,9 +703,11 @@ export default function App() {
       name,
       username: credentialsEnabled ? profileDraft.username.trim() : "",
       password: credentialsEnabled ? profileDraft.password : "",
+      pinentry: credentialsEnabled ? profileDraft.pinentry.trim() : "",
       ca_file: certificateEnabled ? profileDraft.ca_file : "",
       user_cert: certificateEnabled ? profileDraft.user_cert : "",
       user_key: certificateEnabled ? profileDraft.user_key : "",
+      pem_passphrase: certificateEnabled ? profileDraft.pem_passphrase : "",
       origin: "local",
     };
     try {
@@ -1585,6 +1608,52 @@ export default function App() {
                       ),
                     }}
                   />
+                  <TextField
+                    disabled={!credentialsEnabled}
+                    label={t("editor.pinentry")}
+                    value={profileDraft.pinentry}
+                    onChange={(e) => setProfileDraft({ ...profileDraft, pinentry: e.target.value })}
+                    placeholder="pinentry-gnome3"
+                    helperText={t("editor.pinentryHelp")}
+                  />
+                </Stack>
+              </Paper>
+              <Paper sx={sectionSx(colors)}>
+                <SectionTitle title={t("editor.altAuth")} />
+                <Stack p={2} spacing={2}>
+                  <TextField
+                    label={t("editor.cookie")}
+                    type={showCookie ? "text" : "password"}
+                    value={profileDraft.cookie}
+                    onChange={(e) => setProfileDraft({ ...profileDraft, cookie: e.target.value })}
+                    helperText={t("editor.cookieHelp")}
+                    InputProps={{
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton size="small" onClick={() => setShowCookie((v) => !v)}>
+                            {showCookie ? <VisibilityOff /> : <Visibility />}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+                  <FormControlLabel
+                    control={<Checkbox checked={profileDraft.saml_login} onChange={(_, c) => setProfileDraft({ ...profileDraft, saml_login: c })} />}
+                    label={t("editor.samlLogin")}
+                  />
+                  <FormHelperText sx={{ mt: -1, ml: 4 }}>{t("editor.samlLoginHelp")}</FormHelperText>
+                  <TextField
+                    label={t("editor.samlPort")}
+                    type="number"
+                    disabled={!profileDraft.saml_login}
+                    value={profileDraft.saml_port === 0 ? "" : profileDraft.saml_port}
+                    onChange={(e) => {
+                      const n = Number.parseInt(e.target.value, 10);
+                      setProfileDraft({ ...profileDraft, saml_port: Number.isFinite(n) && n > 0 ? n : 0 });
+                    }}
+                    inputProps={{ min: 1, max: 65535, step: 1 }}
+                    placeholder="8020"
+                  />
                 </Stack>
               </Paper>
               <Paper sx={sectionSx(colors)}>
@@ -1668,6 +1737,25 @@ export default function App() {
                   <FormControlLabel control={<Checkbox checked={profileDraft.always_ask_otp} onChange={(_, c) => setProfileDraft({ ...profileDraft, always_ask_otp: c })} />} label={t("editor.alwaysAskOtp")} />
                   <TextField label={t("editor.otpDelay")} type="number" value={profileDraft.otp_delay} onChange={(e) => setProfileDraft({ ...profileDraft, otp_delay: Number.parseInt(e.target.value, 10) || 0 })} />
                   <FormControlLabel control={<Checkbox checked={profileDraft.no_ftm_push} onChange={(_, c) => setProfileDraft({ ...profileDraft, no_ftm_push: c })} />} label={t("editor.noFtmPush")} />
+                  <TextField
+                    fullWidth
+                    label={t("editor.bindIfname")}
+                    value={profileDraft.ifname}
+                    onChange={(e) => setProfileDraft({ ...profileDraft, ifname: e.target.value })}
+                    helperText={t("editor.bindIfnameHelp")}
+                  />
+                  <TextField
+                    select
+                    fullWidth
+                    label={t("editor.useResolvconf")}
+                    value={profileDraft.use_resolvconf || "default"}
+                    onChange={(e) => setProfileDraft({ ...profileDraft, use_resolvconf: e.target.value })}
+                    helperText={t("editor.useResolvconfHelp")}
+                  >
+                    <MenuItem value="default">{t("common.default")}</MenuItem>
+                    <MenuItem value="1">{t("common.enabled")}</MenuItem>
+                    <MenuItem value="0">{t("common.disabled")}</MenuItem>
+                  </TextField>
                 </Stack>
               </Paper>
               <Paper sx={sectionSx(colors)}>
@@ -1970,6 +2058,7 @@ export default function App() {
                     <li>{t("changelog.v030PersistentSeconds")}</li>
                     <li>{t("changelog.v030OpenfortivpnFixes")}</li>
                     <li>{t("changelog.v030MoreOpenfortivpnOptions")}</li>
+                    <li>{t("changelog.v030FullCliCoverage")}</li>
                     <li>{t("changelog.v030Rpm")}</li>
                   </Box>
                 </Typography>

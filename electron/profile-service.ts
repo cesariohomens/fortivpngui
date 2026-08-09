@@ -79,13 +79,16 @@ async function readProfileFromFile(
   const aes = includePassword && !m.use_system_password_store ? await getAesKeys() : null;
   let password = "";
   let pemPassphrase = "";
+  let cookie = "";
   if (includePassword) {
     if (m.use_system_password_store) {
       password = (await keychain.keytarGet(`vpn:${name}`)) || "";
       pemPassphrase = (await keychain.keytarGet(`vpnpem:${name}`)) || "";
+      cookie = (await keychain.keytarGet(`vpncookie:${name}`)) || "";
     } else if (aes) {
       if (vpn.password) password = aes128Decrypt(String(vpn.password), aes.key, aes.iv);
       if (cert.pem_passphrase) pemPassphrase = aes128Decrypt(String(cert.pem_passphrase), aes.key, aes.iv);
+      if (vpn.cookie) cookie = aes128Decrypt(String(vpn.cookie), aes.key, aes.iv);
     }
   }
   return {
@@ -95,18 +98,22 @@ async function readProfileFromFile(
     gateway_port: parseInt(String(vpn.gateway_port || "443"), 10) || 443,
     username: String(vpn.username || ""),
     password,
-    otp: "",
+    cookie,
+    pinentry: String(opt.pinentry || ""),
+    saml_login: iniBool(opt.saml_login),
+    saml_port: parseInt(String(opt.saml_port || "0"), 10) || 0,
     realm: String(opt.realm || ""),
     set_routes: iniBool(opt.set_routes),
     set_dns: iniBool(opt.set_dns),
     half_internet_routers: iniBool(opt.half_internet_routers),
+    use_resolvconf: String(opt.use_resolvconf || "default"),
+    ifname: String(opt.ifname || ""),
     persistent: iniPersistentSeconds(vpn.persistent),
     ca_file: String(cert.ca_file || ""),
     user_cert: String(cert.user_cert || ""),
     user_key: String(cert.user_key || ""),
     pem_passphrase: pemPassphrase,
     trusted_cert: trustedCertFromIniCert(cert),
-    verify_cert: iniBool(cert.verify_cert),
     debug: iniBool(opt.debug),
     autostart: iniBool(opt.autostart),
     always_ask_otp: iniBool(opt.always_ask_otp),
@@ -174,12 +181,15 @@ export async function saveProfileLocal(profile: VpnProfile): Promise<void> {
   const aes = await getAesKeys();
   let encPass = "";
   let encPemPassphrase = "";
+  let encCookie = "";
   if (m.use_system_password_store) {
     await keychain.keytarSet(`vpn:${profile.name}`, profile.password);
     await keychain.keytarSet(`vpnpem:${profile.name}`, profile.pem_passphrase || "");
+    await keychain.keytarSet(`vpncookie:${profile.name}`, profile.cookie || "");
   } else {
     encPass = aes128Encrypt(profile.password.trim(), aes.key, aes.iv);
     encPemPassphrase = profile.pem_passphrase ? aes128Encrypt(profile.pem_passphrase, aes.key, aes.iv) : "";
+    encCookie = profile.cookie ? aes128Encrypt(profile.cookie.trim(), aes.key, aes.iv) : "";
   }
   const obj: Record<string, Record<string, string | number | boolean>> = {
     vpn: {
@@ -188,6 +198,7 @@ export async function saveProfileLocal(profile: VpnProfile): Promise<void> {
       gateway_port: profile.gateway_port || 443,
       username: profile.username.trim(),
       password: encPass,
+      cookie: encCookie,
       persistent: Math.max(0, Math.trunc(profile.persistent) || 0),
       /** OpenFortiGUI-compatible: 0 = FortiGate only. */
       device_type: 0,
@@ -197,7 +208,6 @@ export async function saveProfileLocal(profile: VpnProfile): Promise<void> {
       user_cert: profile.user_cert,
       user_key: profile.user_key,
       pem_passphrase: encPemPassphrase,
-      verify_cert: profile.verify_cert,
       trusted_cert: parseTrustedCertDigests(profile.trusted_cert).join(" "),
       trust_all_gw_certs: profile.trust_all_gw_certs,
     },
@@ -225,6 +235,11 @@ export async function saveProfileLocal(profile: VpnProfile): Promise<void> {
       seclevel1: profile.seclevel1,
       min_tls: profile.min_tls,
       cipher_list: profile.cipher_list,
+      use_resolvconf: profile.use_resolvconf,
+      ifname: profile.ifname,
+      pinentry: profile.pinentry,
+      saml_login: profile.saml_login,
+      saml_port: Math.max(0, Math.trunc(profile.saml_port) || 0),
       sni: profile.sni,
       user_agent: profile.user_agent,
       hostcheck: profile.hostcheck,
@@ -252,6 +267,7 @@ export async function deleteProfileLocal(name: string): Promise<boolean> {
     fs.unlinkSync(f);
     await keychain.keytarDelete(`vpn:${name}`).catch(() => {});
     await keychain.keytarDelete(`vpnpem:${name}`).catch(() => {});
+    await keychain.keytarDelete(`vpncookie:${name}`).catch(() => {});
     return true;
   }
   return false;
