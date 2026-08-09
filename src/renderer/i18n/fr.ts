@@ -207,18 +207,27 @@ export const fr: Messages = {
   },
   changelog: {
     title: "Modifications",
+    v040FortigateOnly: "FortiGate uniquement : le support Barracuda / barracudavpn est retiré.",
+    v040ThemedScrollbars:
+      "Les barres de défilement natives sont remplacées par OverlayScrollbars thématiques (clair et sombre), avec boutons fléchés sur les axes.",
+    v040MuiDialogs:
+      "Copier et supprimer une VPN utilisent les mêmes dialogues MUI que le reste de l'application ; après duplication, l'éditeur s'ouvre sur la nouvelle copie.",
+    v040ReconnectAdvanced:
+      "Le champ d'intervalle de reconnexion passe dans Options → Avancé et occupe toute la largeur.",
+    v040OpenfortivpnFixes:
+      "Correction d'options qui n'atteignaient jamais openfortivpn : Définir le DNS et Accepter distant s'appliquent maintenant lorsqu'elles sont décochées, et l'ancienne option Sans peerdns écrivait une clé invalide qui faisait ignorer par openfortivpn toutes les options suivantes (y compris celles de PPPD et d'OTP).",
+    v040MoreOpenfortivpnOptions:
+      "Nouvelles options de profil : phrase secrète PEM, liste de chiffrements, SNI, User-Agent, vérification de l'hôte et vérification du bureau virtuel. Les options que l'openfortivpn installé est trop ancien pour comprendre sont ignorées et signalées dans le journal VPN.",
+    v040FullCliCoverage:
+      "Toutes les options d'openfortivpn pertinentes pour un profil disposent désormais d'un champ : connexion SAML (le navigateur s'ouvre automatiquement), SVPNCOOKIE, pinentry, liaison à l'interface et utilisation de resolvconf.",
+    v040CachesAndScreenshots:
+      "npm start nettoie d'abord les caches de build et d'Electron ; les captures du README se régénèrent avec npm run screenshots en thèmes sombre et clair.",
     v030NoAutoReconnect:
       "Plus de reconnexion automatique silencieuse : avec un intervalle vide ou 0, FortiVPN GUI cesse de réessayer et vous laisse reconnecter.",
     v030DisconnectWarning:
       "Lorsque le tunnel tombe, une boîte de dialogue d'avertissement explique pourquoi (authentification, certificat, passerelle injoignable, délai, ppp, etc.) et affiche les dernières lignes du journal.",
     v030PersistentSeconds:
-      "L'intervalle persistent d'openfortivpn est désormais modifiable par profil en secondes (éditeur VPN → Options → Avancé), au lieu de 60s fixes et masquées.",
-    v030OpenfortivpnFixes:
-      "Correction d'options qui n'atteignaient jamais openfortivpn : Définir le DNS et Accepter distant s'appliquent maintenant lorsqu'elles sont décochées, et l'ancienne option Sans peerdns écrivait une clé invalide qui faisait ignorer par openfortivpn toutes les options suivantes (y compris celles de PPPD et d'OTP).",
-    v030MoreOpenfortivpnOptions:
-      "Nouvelles options de profil : phrase secrète PEM, liste de chiffrements, SNI, User-Agent, vérification de l'hôte et vérification du bureau virtuel. Les options que l'openfortivpn installé est trop ancien pour comprendre sont ignorées et signalées dans le journal VPN.",
-    v030FullCliCoverage:
-      "Toutes les options d'openfortivpn pertinentes pour un profil disposent désormais d'un champ : connexion SAML (le navigateur s'ouvre automatiquement), SVPNCOOKIE, pinentry, liaison à l'interface et utilisation de resolvconf.",
+      "L'intervalle persistent d'openfortivpn est désormais modifiable par profil en secondes (éditeur VPN → Commun), au lieu de 60s fixes et masquées.",
     v030Rpm: "Des paquets RPM sont générés en plus du .deb (npm run dist:rpm), pour Fedora, RHEL et openSUSE.",
     v021LogTheme:
       "Les fenêtres de journal VPN suivent le thème actif (sombre, clair ou système) et se mettent à jour lors d'un changement de thème.",

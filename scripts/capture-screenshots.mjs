@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Capture English UI screenshots into docs/images/imageXX.png.
+ * Capture English UI screenshots into docs/images/{dark,light}-imageXX.png.
  *
  * Usage: npm run screenshots
  *
@@ -17,6 +17,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
 const imagesDir = path.join(root, "docs", "images");
 const electronBin = path.join(root, "node_modules", ".bin", "electron");
+
+const THEMES = ["dark", "light"];
 
 function run(cmd, args, opts = {}) {
   return new Promise((resolve, reject) => {
@@ -41,28 +43,43 @@ function clearPngs(dir) {
   }
 }
 
-function updateReadme(count) {
+function themeRows(theme, ids) {
+  const rows = [];
+  for (let i = 0; i < ids.length; i += 2) {
+    const a = ids[i];
+    const b = ids[i + 1];
+    const left = `![](docs/images/${theme}-image${a}.png)`;
+    const right = b ? `![](docs/images/${theme}-image${b}.png)` : "";
+    rows.push(`| ${left} | ${right} |`);
+  }
+  return rows;
+}
+
+function updateReadme(byTheme) {
   const readmePath = path.join(root, "README.md");
   let readme = fs.readFileSync(readmePath, "utf8");
-  const rows = [];
-  for (let i = 1; i <= count; i += 2) {
-    const a = String(i).padStart(2, "0");
-    const b = i + 1 <= count ? String(i + 1).padStart(2, "0") : null;
-    if (b) {
-      rows.push(`| ![](docs/images/image${a}.png) | ![](docs/images/image${b}.png) |`);
-    } else {
-      rows.push(`| ![](docs/images/image${a}.png) | |`);
-    }
+
+  const sections = [];
+  for (const theme of THEMES) {
+    const ids = byTheme[theme] || [];
+    if (ids.length === 0) continue;
+    const label = theme === "dark" ? "Dark" : "Light";
+    sections.push(
+      `### ${label}`,
+      "",
+      "| Screenshot | Screenshot |",
+      "|:---:|:---:|",
+      ...themeRows(theme, ids),
+      ""
+    );
   }
+
   const block = [
     "## Screenshots",
     "",
-    "PNG files live in [`docs/images/`](docs/images/). Regenerate with `npm run screenshots` (English UI, isolated config).",
+    "PNG files live in [`docs/images/`](docs/images/). Regenerate with `npm run screenshots` (English UI, isolated config, **dark** and **light** themes).",
     "",
-    "| Screenshot | Screenshot |",
-    "|:---:|:---:|",
-    ...rows,
-    "",
+    ...sections,
   ].join("\n");
 
   const re = /## Screenshots\r?\n[\s\S]*?(?=\r?\n---\r?\n)/;
@@ -72,9 +89,10 @@ function updateReadme(count) {
   const replaced = readme.replace(re, `${block}\n`);
   if (replaced !== readme) {
     fs.writeFileSync(readmePath, replaced);
-    console.log(`[screenshots] README.md updated (${count} images)`);
+    const total = THEMES.reduce((n, t) => n + (byTheme[t]?.length || 0), 0);
+    console.log(`[screenshots] README.md updated (${total} images, dark + light tables)`);
   } else {
-    console.log(`[screenshots] README.md already up to date (${count} images)`);
+    console.log(`[screenshots] README.md already up to date`);
   }
 }
 
@@ -117,15 +135,24 @@ async function main() {
     });
   });
 
-  const pngs = fs
-    .readdirSync(imagesDir)
-    .filter((n) => /^image\d+\.png$/.test(n))
-    .sort();
-  if (pngs.length === 0) {
-    throw new Error("No imageXX.png files were written");
+  const byTheme = { dark: [], light: [] };
+  for (const name of fs.readdirSync(imagesDir).sort()) {
+    const m = name.match(/^(dark|light)-image(\d+)\.png$/);
+    if (!m) continue;
+    byTheme[m[1]].push(m[2]);
   }
-  console.log(`[screenshots] generated: ${pngs.join(", ")}`);
-  updateReadme(pngs.length);
+  for (const theme of THEMES) {
+    byTheme[theme].sort();
+  }
+
+  const total = byTheme.dark.length + byTheme.light.length;
+  if (total === 0) {
+    throw new Error("No dark-/light-imageXX.png files were written");
+  }
+  console.log(
+    `[screenshots] generated: dark=${byTheme.dark.map((i) => `image${i}`).join(", ")}; light=${byTheme.light.map((i) => `image${i}`).join(", ")}`
+  );
+  updateReadme(byTheme);
 
   try {
     fs.rmSync(tmpRoot, { recursive: true, force: true });

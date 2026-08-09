@@ -205,18 +205,27 @@ export const en = {
   },
   changelog: {
     title: "Changelog",
+    v040FortigateOnly: "FortiGate only: Barracuda / barracudavpn support is removed.",
+    v040ThemedScrollbars:
+      "Native scrollbars are replaced with themed OverlayScrollbars (light and dark), including axis arrow buttons.",
+    v040MuiDialogs:
+      "VPN copy and delete use the same MUI dialogs as the rest of the app; after duplicating a profile the editor opens on the new copy.",
+    v040ReconnectAdvanced:
+      "The reconnect interval field moved to Options → Advanced and spans the full width.",
+    v040OpenfortivpnFixes:
+      "Fixed options that never reached openfortivpn: Set DNS and Accept remote now apply when unchecked, and the old No peerdns setting wrote an invalid key that made openfortivpn discard every option after it (including the PPPD and OTP settings).",
+    v040MoreOpenfortivpnOptions:
+      "New profile options: PEM pass phrase, Cipher list, SNI, User-Agent, Host check, and Virtual desktop check. Options your installed openfortivpn is too old to understand are skipped and reported in the VPN log.",
+    v040FullCliCoverage:
+      "Every openfortivpn option that makes sense for a profile now has a field: SAML login (the browser opens automatically), SVPNCOOKIE, pinentry, bind to interface, and use resolvconf.",
+    v040CachesAndScreenshots:
+      "npm start cleans build and Electron caches first; README screenshots can be regenerated with npm run screenshots in both dark and light themes.",
     v030NoAutoReconnect:
       "No silent auto-reconnect: with an empty or 0 reconnect interval, FortiVPN GUI stops retrying and leaves reconnecting to you.",
     v030DisconnectWarning:
       "When a tunnel drops, a warning dialog explains why (authentication, certificate, gateway unreachable, timeout, ppp, and more) and shows the last log lines.",
     v030PersistentSeconds:
-      "The openfortivpn persistent interval is now editable per profile in seconds (VPN editor → Options → Advanced) instead of a hidden fixed 60s.",
-    v030OpenfortivpnFixes:
-      "Fixed options that never reached openfortivpn: Set DNS and Accept remote now apply when unchecked, and the old No peerdns setting wrote an invalid key that made openfortivpn discard every option after it (including the PPPD and OTP settings).",
-    v030MoreOpenfortivpnOptions:
-      "New profile options: PEM pass phrase, Cipher list, SNI, User-Agent, Host check, and Virtual desktop check. Options your installed openfortivpn is too old to understand are skipped and reported in the VPN log.",
-    v030FullCliCoverage:
-      "Every openfortivpn option that makes sense for a profile now has a field: SAML login (the browser opens automatically), SVPNCOOKIE, pinentry, bind to interface, and use resolvconf.",
+      "The openfortivpn persistent interval is now editable per profile in seconds (VPN editor → Common) instead of a hidden fixed 60s.",
     v030Rpm: "RPM packages are built alongside .deb (npm run dist:rpm), for Fedora, RHEL, and openSUSE.",
     v021LogTheme:
       "VPN log windows follow the active theme (dark, light, or system) and refresh when the theme changes.",

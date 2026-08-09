@@ -23,14 +23,25 @@ Desktop VPN client for **FortiGate** (system [`openfortivpn`](https://github.com
 
 ## Screenshots
 
-PNG files live in [`docs/images/`](docs/images/). Regenerate with `npm run screenshots` (English UI, isolated config).
+PNG files live in [`docs/images/`](docs/images/). Regenerate with `npm run screenshots` (English UI, isolated config, **dark** and **light** themes).
+
+### Dark
 
 | Screenshot | Screenshot |
 |:---:|:---:|
-| ![](docs/images/image01.png) | ![](docs/images/image02.png) |
-| ![](docs/images/image03.png) | ![](docs/images/image04.png) |
-| ![](docs/images/image05.png) | ![](docs/images/image06.png) |
-| ![](docs/images/image07.png) | ![](docs/images/image08.png) |
+| ![](docs/images/dark-image01.png) | ![](docs/images/dark-image02.png) |
+| ![](docs/images/dark-image03.png) | ![](docs/images/dark-image04.png) |
+| ![](docs/images/dark-image05.png) | ![](docs/images/dark-image06.png) |
+| ![](docs/images/dark-image07.png) |  |
+
+### Light
+
+| Screenshot | Screenshot |
+|:---:|:---:|
+| ![](docs/images/light-image01.png) | ![](docs/images/light-image02.png) |
+| ![](docs/images/light-image03.png) | ![](docs/images/light-image04.png) |
+| ![](docs/images/light-image05.png) | ![](docs/images/light-image06.png) |
+| ![](docs/images/light-image07.png) |  |
 
 
 ---

@@ -8,6 +8,8 @@ import * as groupService from "./group-service.js";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+type ThemeModeShot = "dark" | "light";
+
 async function waitForUi(win: BrowserWindow, timeoutMs = 20000): Promise<void> {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
@@ -116,8 +118,17 @@ async function ensureDemoData(): Promise<void> {
   }
 }
 
+async function applyTheme(win: BrowserWindow, theme: ThemeModeShot): Promise<void> {
+  await ui(
+    win,
+    `window.__fvpnUi.setThemeMode("${theme}"); await window.fvpn.saveSettings({ theme_mode: "${theme}" });`
+  );
+  await settle(win, 700);
+}
+
 /**
- * Capture main views + key dialogs in English. Returns paths written (image01.png …).
+ * Capture main views + key dialogs in English for dark and light themes.
+ * Writes dark-image01.png … dark-image07.png and light-image01.png … light-image07.png.
  * Env: FORTIVPNGUI_CAPTURE_SCREENSHOTS = absolute output directory (docs/images).
  */
 export async function runScreenshotCapture(mainWindow: BrowserWindow, outDir: string): Promise<string[]> {
@@ -136,79 +147,75 @@ export async function runScreenshotCapture(mainWindow: BrowserWindow, outDir: st
     await new Promise<void>((resolve) => mainWindow.webContents.once("did-finish-load", () => resolve()));
   }
   await waitForUi(mainWindow);
-  // Reload settings / demo profiles into the renderer after seeding.
-  await ui(mainWindow, `await window.fvpn.saveSettings({ language: "en", theme_mode: "dark", setupwizard: true, changelogrev_read: ${CHANGELOG_REV} });`);
+  await ui(
+    mainWindow,
+    `await window.fvpn.saveSettings({ language: "en", theme_mode: "dark", setupwizard: true, changelogrev_read: ${CHANGELOG_REV} });`
+  );
   await ui(mainWindow, `await window.__fvpnUi.refresh();`);
   await settle(mainWindow, 700);
 
-  const shots: { file: string; run: () => Promise<void> }[] = [
+  const scenes: { id: string; run: () => Promise<void> }[] = [
     {
-      file: "image01.png",
+      id: "01",
       run: async () => {
-        await ui(mainWindow, `window.__fvpnUi.closeOverlays(); window.__fvpnUi.setView("vpn"); window.__fvpnUi.setThemeMode("dark");`);
+        await ui(mainWindow, `window.__fvpnUi.closeOverlays(); window.__fvpnUi.setView("vpn");`);
         await settle(mainWindow);
       },
     },
     {
-      file: "image02.png",
+      id: "02",
       run: async () => {
         await ui(mainWindow, `window.__fvpnUi.closeOverlays(); window.__fvpnUi.setView("groups");`);
         await settle(mainWindow);
       },
     },
     {
-      file: "image03.png",
+      id: "03",
       run: async () => {
         await ui(mainWindow, `window.__fvpnUi.closeOverlays(); window.__fvpnUi.setView("settings");`);
         await settle(mainWindow, 600);
       },
     },
     {
-      file: "image04.png",
+      id: "04",
       run: async () => {
         await ui(mainWindow, `window.__fvpnUi.closeOverlays(); window.__fvpnUi.setView("vpn"); window.__fvpnUi.openProfileEditor();`);
         await settle(mainWindow, 600);
       },
     },
     {
-      file: "image05.png",
+      id: "05",
       run: async () => {
         await ui(mainWindow, `window.__fvpnUi.closeOverlays(); window.__fvpnUi.setView("vpn"); window.__fvpnUi.openAbout();`);
         await settle(mainWindow, 500);
       },
     },
     {
-      file: "image06.png",
+      id: "06",
       run: async () => {
         await ui(mainWindow, `window.__fvpnUi.closeOverlays(); window.__fvpnUi.openChangelog();`);
         await settle(mainWindow, 500);
       },
     },
     {
-      file: "image07.png",
+      id: "07",
       run: async () => {
         await ui(mainWindow, `window.__fvpnUi.closeOverlays(); window.__fvpnUi.openWizard(0);`);
         await settle(mainWindow, 500);
       },
     },
-    {
-      file: "image08.png",
-      run: async () => {
-        await ui(
-          mainWindow,
-          `window.__fvpnUi.closeOverlays(); window.__fvpnUi.setThemeMode("light"); window.__fvpnUi.setView("vpn"); await window.fvpn.saveSettings({ theme_mode: "light" });`
-        );
-        await settle(mainWindow, 700);
-      },
-    },
   ];
 
+  const themes: ThemeModeShot[] = ["dark", "light"];
   const written: string[] = [];
-  for (const shot of shots) {
-    await shot.run();
-    const outPath = path.join(outDir, shot.file);
-    await capture(mainWindow, outPath);
-    written.push(outPath);
+  for (const theme of themes) {
+    await applyTheme(mainWindow, theme);
+    for (const scene of scenes) {
+      await scene.run();
+      const outPath = path.join(outDir, `${theme}-image${scene.id}.png`);
+      await capture(mainWindow, outPath);
+      written.push(outPath);
+    }
   }
 
   console.log(`[screenshots] captured ${written.length} images into ${outDir}`);
@@ -221,7 +228,6 @@ export function screenshotCaptureRequested(): string | null {
 }
 
 export function quitAfterScreenshots(): void {
-  // Allow the last PNG flush to settle before quitting.
   setTimeout(() => {
     app.exit(0);
   }, 300);

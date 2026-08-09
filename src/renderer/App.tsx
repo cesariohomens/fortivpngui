@@ -2050,15 +2050,29 @@ export default function App() {
           <List dense sx={{ px: 1, py: 0.5 }}>
             <ListItemButton sx={{ alignItems: "flex-start", py: 1.5 }}>
               <Box>
+                <Typography fontWeight={700}>0.4.0</Typography>
+                <Typography variant="body2" color={colors.muted} component="div" sx={{ mt: 0.5 }}>
+                  <Box component="ul" sx={{ m: 0, pl: 2.25 }}>
+                    <li>{t("changelog.v040FortigateOnly")}</li>
+                    <li>{t("changelog.v040ThemedScrollbars")}</li>
+                    <li>{t("changelog.v040MuiDialogs")}</li>
+                    <li>{t("changelog.v040ReconnectAdvanced")}</li>
+                    <li>{t("changelog.v040OpenfortivpnFixes")}</li>
+                    <li>{t("changelog.v040MoreOpenfortivpnOptions")}</li>
+                    <li>{t("changelog.v040FullCliCoverage")}</li>
+                    <li>{t("changelog.v040CachesAndScreenshots")}</li>
+                  </Box>
+                </Typography>
+              </Box>
+            </ListItemButton>
+            <ListItemButton sx={{ alignItems: "flex-start", py: 1.5 }}>
+              <Box>
                 <Typography fontWeight={700}>0.3.0</Typography>
                 <Typography variant="body2" color={colors.muted} component="div" sx={{ mt: 0.5 }}>
                   <Box component="ul" sx={{ m: 0, pl: 2.25 }}>
                     <li>{t("changelog.v030NoAutoReconnect")}</li>
                     <li>{t("changelog.v030DisconnectWarning")}</li>
                     <li>{t("changelog.v030PersistentSeconds")}</li>
-                    <li>{t("changelog.v030OpenfortivpnFixes")}</li>
-                    <li>{t("changelog.v030MoreOpenfortivpnOptions")}</li>
-                    <li>{t("changelog.v030FullCliCoverage")}</li>
                     <li>{t("changelog.v030Rpm")}</li>
                   </Box>
                 </Typography>
