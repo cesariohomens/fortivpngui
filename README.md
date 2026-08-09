@@ -11,6 +11,8 @@
   <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/Node.js-339933?style=flat-square&logo=nodedotjs&logoColor=white" alt="Node.js" /></a>
   <a href="https://github.com/adrienverge/openfortivpn"><img src="https://img.shields.io/badge/openfortivpn-system-2ea44f?style=flat-square" alt="openfortivpn" /></a>
   <img src="https://img.shields.io/badge/Linux-deb-FCC624?style=flat-square&logo=linux&logoColor=black" alt="Linux .deb" />
+  <img src="https://img.shields.io/badge/Linux-rpm-FCC624?style=flat-square&logo=linux&logoColor=black" alt="Linux .rpm" />
+  <img src="https://img.shields.io/badge/version-0.4.0-0A7EA4?style=flat-square" alt="0.4.0" />
   <a href="https://www.npmjs.com/package/ini"><img src="https://img.shields.io/badge/ini-config-EA6A47?style=flat-square&logo=npm&logoColor=white" alt="ini" /></a>
   <a href="https://www.npmjs.com/package/keytar"><img src="https://img.shields.io/badge/keytar-libsecret-808080?style=flat-square&logo=npm&logoColor=white" alt="keytar" /></a>
 </p>
@@ -18,6 +20,8 @@
 # FortiVPN GUI
 
 Desktop VPN client for **FortiGate** (system [`openfortivpn`](https://github.com/adrienverge/openfortivpn)). The UI is **Electron**, **React 19**, and **Material UI**. Profiles and groups use an **INI-style layout** under `~/.fortivpngui/`, compatible with **OpenFortiGUI** for import and day-to-day use.
+
+Current release: **[0.4.0](docs/releases/v0.4.0.md)** — see also [0.3.0](docs/releases/v0.3.0.md), [0.2.1](docs/releases/v0.2.1.md), and [0.2.0](docs/releases/v0.2.0.md).
 
 **Licence:** this repository is [MIT](LICENSE). Runtime dependencies (Electron, React, MUI, `openfortivpn`, etc.) have their own licences.
 
@@ -48,12 +52,17 @@ PNG files live in [`docs/images/`](docs/images/). Regenerate with `npm run scree
 
 ## Features
 
-- **FortiGate** profiles: `sudo openfortivpn` with generated configs, OTP on stdin, optional gateway certificate prompt and `trusted-cert` handling, traffic stats, per-profile log files.
+- **FortiGate only**: `sudo openfortivpn` with generated configs; options the installed binary cannot parse are skipped and logged (version / `--help` gating).
+- **Full profile editor** for the useful `openfortivpn` surface: routes/DNS, reconnect interval (**Options → Advanced**), PPPD, SSL/TLS (cipher list, min TLS, seclevel-1), certificates (including PEM pass phrase), gateway digests, SAML login (browser opens automatically), SVPNCOOKIE on stdin, pinentry, bind-to-interface (`--ifname`), resolvconf, host check / virtual desktop / SNI / User-Agent.
+- **OTP on stdin**, FortiToken Mobile push opt-out, optional gateway certificate prompt and `trusted-cert` handling, traffic stats, per-profile log files.
 - **VPN groups**: connect/disconnect member profiles together; status derived from members.
-- **No silent auto-reconnect**: a dropped tunnel raises a **warning dialog** with the detected cause and the last log lines; reconnecting is the user's call unless a **reconnect interval** (openfortivpn `persistent`, in seconds) is set on the profile.
+- **No silent auto-reconnect**: a dropped tunnel raises a **warning dialog** with the detected cause and the last log lines; reconnecting is the user's call unless a **reconnect interval** (`persistent`, seconds) is set on the profile.
+- **i18n**: English, Portuguese, Spanish, French, Italian, German; **Settings → GUI → Language** (`gui/language` in `main.conf`).
+- **Theme**: dark / light / system (`gui/theme_mode`); **OverlayScrollbars** themed for both modes (with axis arrows).
 - **Tray** on Linux: quick connect/disconnect, open main window, Settings tab, quit (full quit stops VPN helpers and cleans temp files).
 - **Main window close** hides to tray; **orphan** temp configs under `TMPDIR` / `fortivpngui` are swept without stopping active tunnels.
-- **Settings**: paths, AES key/IV, password manager (**keytar** / libsecret), notifications, search, **theme** (dark / light / system, stored in `main.conf`), import/merge from OpenFortiGUI.
+- **Settings**: paths, AES key/IV, password manager (**keytar** / libsecret), notifications, search, theme/language, import/merge from OpenFortiGUI.
+- **Packages**: `.deb` and `.rpm` via `npm run dist`.
 - **External links** (`http`, `https`, `mailto`) open in the **system default browser** (main window navigation is guarded in the Electron main process).
 
 ---
@@ -74,11 +83,15 @@ PNG files live in [`docs/images/`](docs/images/). Regenerate with `npm run scree
 
 | Path | Role |
 |------|------|
-| `electron/` | Main process: window, tray, IPC, VPN runner (`openfortivpn-runner`), profiles/groups/settings/import, preload bridge |
-| `src/renderer/` | React UI (`App.tsx`), Vite entry |
+| `electron/` | Main process: window, tray, IPC, VPN runner (`openfortivpn-runner`), capabilities gating, profiles/groups/settings/import, preload bridge |
+| `src/renderer/` | React UI (`App.tsx`), i18n, themed scrollbars, Vite entry |
 | `shared/` | Types and constants shared at build time (`constants.ts` imports `package.json` for version and metadata) |
 | `resources/` | Packaged assets: `sudo/` template, `deb/` and `rpm/` maintainer scripts, icons |
+| `docs/releases/` | Human-readable release notes (`v0.4.0.md`, …) |
+| `docs/images/` | README screenshots (`dark-imageXX.png` / `light-imageXX.png`) |
+| `scripts/` | `capture-screenshots.mjs`, `clean-caches.mjs` |
 | `dist/` / `dist-electron/` | Build output (ignored by git); `npm run build` fills these |
+| `release/` | Packaged `.deb` / `.rpm` (ignored by git) |
 
 ---
 
@@ -88,6 +101,8 @@ PNG files live in [`docs/images/`](docs/images/). Regenerate with `npm run scree
 npm ci
 npm run build:electron   # compile main + preload TypeScript
 npm run electron:dev     # Vite :5173 + Electron with hot reload
+npm run clean            # wipe dist/, Vite caches, and Electron Chromium caches under ~/.config/fortivpngui
+npm run screenshots      # English UI PNGs for docs/images (dark + light)
 ```
 
 `npm start` and `npm run electron:dev` use **`--no-sandbox`** so Electron runs when `chrome-sandbox` is not setuid root (common after `npm install`). If you see *“The SUID sandbox helper binary was found, but is not configured correctly”*, either keep `--no-sandbox` or fix sandbox permissions once:
@@ -102,7 +117,7 @@ Debug the blank window: `FORTIVPN_OPEN_DEVTOOLS=1 npm start` and inspect the Con
 Production-like local run:
 
 ```bash
-npm start    # npm run build && electron --no-sandbox .
+npm start    # npm run clean && npm run build && electron --no-sandbox .
 ```
 
 ---
@@ -110,7 +125,7 @@ npm start    # npm run build && electron --no-sandbox .
 ## Configuration and data
 
 - **Base directory:** `~/.fortivpngui/`
-- **Main settings:** `~/.fortivpngui/main.conf` (INI: `main`, `paths`, `checks`, `gui` — includes `gui/theme_mode` = `dark`, `light`, or `system`)
+- **Main settings:** `~/.fortivpngui/main.conf` (INI: `main`, `paths`, `gui` — includes `gui/theme_mode` and `gui/language`)
 - **Profiles:** local `~/.fortivpngui/vpnprofiles/`, global `/etc/fortivpngui/vpnprofiles/` (paths configurable in Settings)
 - **Groups:** `~/.fortivpngui/vpngroups/`
 - **Logs directory:** configurable; VPN process logs under the configured tree
@@ -127,12 +142,12 @@ npm run dist:deb   # .deb only
 npm run dist:rpm   # .rpm only (host needs rpmbuild / rpm-build)
 ```
 
-Artifacts land in `release/` (large; distribute via **GitHub Releases** or similar, not necessarily inside git):
+Artifacts land in `release/` (large; distribute via **GitHub Releases** or similar, not necessarily inside git). For **0.4.0**:
 
 | Format | Artifact | Install |
 |--------|----------|---------|
-| **deb** | `fortivpngui_<version>_amd64.deb` | `sudo apt install ./fortivpngui_<version>_amd64.deb` |
-| **rpm** | `fortivpngui-<version>.x86_64.rpm` | `sudo dnf install ./fortivpngui-<version>.x86_64.rpm` |
+| **deb** | `fortivpngui_0.4.0_amd64.deb` | `sudo apt install ./fortivpngui_0.4.0_amd64.deb` |
+| **rpm** | `fortivpngui-0.4.0.x86_64.rpm` | `sudo dnf install ./fortivpngui-0.4.0.x86_64.rpm` (or `zypper install` on openSUSE) |
 
 - **Depends (deb):** `openfortivpn`, `ppp`, `sudo`, `libsecret-1-0` (`package.json` → `build.deb.depends`).
 - **Depends (rpm):** `openfortivpn`, `ppp`, `sudo`, `libsecret` (`package.json` → `build.rpm.depends`).
@@ -156,9 +171,12 @@ The trailing **` * `** is important: the app invokes `sudo /usr/bin/openfortivpn
 
 Inspect the installed drop-in: `sudo visudo -f /etc/sudoers.d/fortivpngui`.
 
-### FortiGate OTP tips
+### FortiGate OTP and alternative auth
 
-For **email/SMS OTP**, the gateway may need token mode instead of FortiToken Mobile push. In the profile editor, try **“no FTM push”** (`no-ftm-push`) and, if the token is slow, increase **OTP delay** (`otp-delay`, seconds).
+- For **email/SMS OTP**, the gateway may need token mode instead of FortiToken Mobile push. In the profile editor, try **No FortiToken Mobile push** (`no-ftm-push`) and, if the token is slow, increase **OTP delay** (`otp-delay`, seconds).
+- **SAML login** (`saml-login`, openfortivpn ≥ 1.23): FortiVPN GUI opens the `Authenticate at '…'` URL in the default browser and waits for the redirect.
+- **SVPNCOOKIE** is sent with `--cookie-on-stdin` (never on argv) so the session cookie does not appear in the process list.
+- A username is not required when a cookie or SAML login is configured.
 
 ---
 
@@ -169,6 +187,8 @@ Use **Settings → Import** or the first-run wizard to copy `~/.openfortigui/vpn
 ---
 
 ## Changelog in the app
+
+Release notes for packaging and humans live under [`docs/releases/`](docs/releases/). The in-app changelog dialog uses the same content keys in [`src/renderer/i18n/`](src/renderer/i18n/).
 
 When you add or change changelog content shown to users, bump **`CHANGELOG_REV`** in **both** [`shared/constants.ts`](shared/constants.ts) and [`electron/config.ts`](electron/config.ts) so the renderer and main process stay aligned.
 
@@ -182,4 +202,4 @@ When you add or change changelog content shown to users, bump **`CHANGELOG_REV`*
 
 ## Third-party components
 
-This app bundles or depends on **Electron**, **React**, **Vite**, **Material UI**, **ini**, **keytar**, and the system tool **openfortivpn**. Their licences apply to those components, not to this repo’s MIT-licensed source as a whole.
+This app bundles or depends on **Electron**, **React**, **Vite**, **Material UI**, **OverlayScrollbars**, **ini**, **keytar**, and the system tool **openfortivpn**. Their licences apply to those components, not to this repo’s MIT-licensed source as a whole.
