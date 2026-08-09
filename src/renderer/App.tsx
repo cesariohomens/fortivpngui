@@ -227,6 +227,11 @@ export default function App() {
   const [groupOriginalName, setGroupOriginalName] = useState<string | null>(null);
   const [groupMembers, setGroupMembers] = useState<Set<string>>(new Set());
 
+  /** Electron does not support `window.prompt`; use the same MUI dialog pattern as Add/Edit VPN. */
+  const [copyVpnOpen, setCopyVpnOpen] = useState(false);
+  const [copyVpnSource, setCopyVpnSource] = useState<string | null>(null);
+  const [copyVpnName, setCopyVpnName] = useState("");
+
   const [loginOpen, setLoginOpen] = useState(false);
   const [loginTarget, setLoginTarget] = useState<string | null>(null);
   const [loginKind, setLoginKind] = useState<"always" | "challenge" | null>(null);
@@ -585,6 +590,7 @@ export default function App() {
         setWizardOpen(false);
         setProfileOpen(false);
         setGroupOpen(false);
+        setCopyVpnOpen(false);
         setDisconnectWarn(null);
         setGwCertDlg(null);
         setLoginOpen(false);
@@ -699,16 +705,39 @@ export default function App() {
     await refresh();
   };
 
-  const duplicateProfile = async (name: string) => {
+  const duplicateProfile = (name: string) => {
     const p = profiles.find((x) => x.name === name);
     if (!p) return;
-    const proposed = `${p.name}${t("profile.copySuffix")}`;
-    const newName = prompt(t("notify.promptNewVpnName"), proposed);
-    if (!newName) return;
+    setCopyVpnSource(p.name);
+    setCopyVpnName(`${p.name}${t("profile.copySuffix")}`);
+    setCopyVpnOpen(true);
+  };
+
+  const confirmCopyVpn = async () => {
+    const source = copyVpnSource;
+    if (!source) return;
+    const p = profiles.find((x) => x.name === source);
+    if (!p) {
+      setCopyVpnOpen(false);
+      return;
+    }
+    const newName = copyVpnName.trim();
+    if (!NAME_RE.test(newName)) {
+      notify(t("notify.invalidVpnName"));
+      return;
+    }
+    if (profiles.some((x) => x.name === newName)) {
+      notify(t("notify.vpnNameExists", { name: newName }));
+      return;
+    }
+    const next: VpnProfile = { ...p, name: newName, origin: "local" };
     try {
-      await window.fvpn.saveProfile({ ...p, name: newName.trim(), origin: "local" });
-      setSelectedProfileName(newName.trim());
+      await window.fvpn.saveProfile(next);
+      setCopyVpnOpen(false);
+      setCopyVpnSource(null);
+      setSelectedProfileName(newName);
       await refresh();
+      editProfile(next);
     } catch (e) {
       notify((e as Error).message);
     }
@@ -1619,6 +1648,47 @@ export default function App() {
         </DialogActions>
       </Dialog>
 
+      <Dialog
+        open={copyVpnOpen}
+        onClose={() => {
+          setCopyVpnOpen(false);
+          setCopyVpnSource(null);
+        }}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>{t("notify.promptNewVpnName")}</DialogTitle>
+        <DialogContent dividers>
+          <TextField
+            autoFocus
+            fullWidth
+            label={t("table.name")}
+            value={copyVpnName}
+            onChange={(e) => setCopyVpnName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                void confirmCopyVpn();
+              }
+            }}
+            sx={{ mt: 0.5 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => {
+              setCopyVpnOpen(false);
+              setCopyVpnSource(null);
+            }}
+          >
+            {t("common.cancel")}
+          </Button>
+          <Button variant="contained" onClick={() => void confirmCopyVpn()}>
+            {t("toolbar.copy")}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       <Dialog open={groupOpen} onClose={() => setGroupOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>{groupOriginalName ? t("group.edit", { name: groupOriginalName }) : t("group.add")}</DialogTitle>
         <DialogContent dividers>
@@ -1776,7 +1846,6 @@ export default function App() {
                     <li>{t("changelog.v030DisconnectWarning")}</li>
                     <li>{t("changelog.v030PersistentSeconds")}</li>
                     <li>{t("changelog.v030Rpm")}</li>
-                    <li>{t("changelog.v030UiScroll")}</li>
                   </Box>
                 </Typography>
               </Box>

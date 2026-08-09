@@ -186,8 +186,6 @@ export const it: Messages = {
     v030PersistentSeconds:
       "L'intervallo persistent di openfortivpn è ora modificabile per profilo in secondi (editor VPN → Comune), invece dei 60s fissi e nascosti.",
     v030Rpm: "Ora vengono generati pacchetti RPM oltre al .deb (npm run dist:rpm), per Fedora, RHEL e openSUSE.",
-    v030UiScroll:
-      "Barre di scorrimento sottili e tematiche nell'interfaccia e nelle finestre di log VPN; l'editor del profilo tiene fissi titolo, schede e azioni mentre il modulo scorre sul posto.",
     v021LogTheme:
       "Le finestre di log VPN seguono il tema attivo (scuro, chiaro o sistema) e si aggiornano al cambio tema.",
     v021ChangelogScroll:
@@ -238,6 +236,7 @@ export const it: Messages = {
     globalProfileNoDelete: "I profili VPN globali non possono essere eliminati.",
     confirmDeleteVpn: "Attenzione, la VPN selezionata verrà eliminata, continuare?\n\n{name}",
     promptNewVpnName: "Inserisci il nome del nuovo profilo VPN",
+    vpnNameExists: "Esiste già un profilo VPN denominato \"{name}\".",
     missingGroupName: "Devi impostare un nome per il gruppo VPN.",
     groupMemberMissingCreds: "Devi impostare nome utente e password per ogni membro del gruppo. Primo mancante su VPN: {name}",
     confirmDeleteGroup: "Attenzione, il gruppo VPN selezionato verrà eliminato, continuare?\n\n{name}",
