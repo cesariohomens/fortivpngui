@@ -1,5 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { CssBaseline, GlobalStyles, ThemeProvider } from "@mui/material";
+import "overlayscrollbars/overlayscrollbars.css";
+import "./fvpn-scrollbar.css";
 import { parseThemeMode } from "../../shared/theme";
 import type { ThemeMode } from "../../shared/types";
 import {
@@ -70,6 +72,25 @@ export function ThemeModeProvider({ children }: { children: React.ReactNode }) {
   const tokens = effectiveMode === "dark" ? darkTokens : lightTokens;
   const appColors = useMemo(() => tokensToAppColors(tokens), [effectiveMode]);
   const muiTheme = useMemo(() => createAppTheme(tokens, effectiveMode), [effectiveMode]);
+  const globalStyles = useMemo(
+    () => ({
+      ":root": {
+        "--fvpn-scrollbar-thumb": tokens.outlineVariant,
+      },
+      "html, body, #root": {
+        width: "100%",
+        height: "100%",
+        margin: 0,
+        overflow: "hidden",
+        background: tokens.background,
+      },
+      "*": { boxSizing: "border-box" as const },
+      "code, pre, .mono": {
+        fontFamily: '"JetBrains Mono", "Cascadia Code", "SFMono-Regular", Consolas, monospace',
+      },
+    }),
+    [effectiveMode]
+  );
 
   const setThemeMode = useCallback((next: ThemeMode) => {
     setMode(next);
@@ -93,20 +114,7 @@ export function ThemeModeProvider({ children }: { children: React.ReactNode }) {
       <AppColorsContext.Provider value={appColors}>
         <ThemeProvider theme={muiTheme}>
           <CssBaseline />
-          <GlobalStyles
-            styles={{
-              "html, body, #root": {
-                width: "100%",
-                height: "100%",
-                margin: 0,
-                background: tokens.background,
-              },
-              "*": { boxSizing: "border-box" },
-              "code, pre, .mono": {
-                fontFamily: '"JetBrains Mono", "Cascadia Code", "SFMono-Regular", Consolas, monospace',
-              },
-            }}
-          />
+          <GlobalStyles styles={globalStyles} />
           {children}
         </ThemeProvider>
       </AppColorsContext.Provider>

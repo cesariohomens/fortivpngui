@@ -30,6 +30,8 @@
     "@mui/material": "^6.4.0",
     "ini": "^5.0.0",
     "keytar": "^7.9.0",
+    "overlayscrollbars": "^2.16.0",
+    "overlayscrollbars-react": "^0.5.6",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
@@ -51,7 +53,9 @@
     "appId": "com.cesariogarcia.fortivpngui",
     "productName": "fortivpngui",
     "asar": true,
-    "asarUnpack": ["resources/sudo/**"],
+    "asarUnpack": [
+      "resources/sudo/**"
+    ],
     "icon": "build/icons",
     "directories": {
       "output": "release"
@@ -63,9 +67,14 @@
       "build/icons/512x512.png"
     ],
     "linux": {
-      "target": ["deb", "rpm"],
+      "target": [
+        "deb",
+        "rpm"
+      ],
       "category": "Network",
-      "executableArgs": ["--no-sandbox"],
+      "executableArgs": [
+        "--no-sandbox"
+      ],
       "executableName": "fortivpngui",
       "maintainer": "cesario@cesariogarcia.com",
       "desktop": {

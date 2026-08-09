@@ -74,7 +74,10 @@ function isPathUnderVpnLogsDir(absPath: string): boolean {
 
 function loadPlainTextLog(win: BrowserWindow, profileName: string, filePath: string): void {
   const html = buildPlainTextLogHtml(profileName, filePath);
-  void win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+  // file:// load so OverlayScrollbars assets from node_modules can be referenced (data: URLs cannot).
+  const out = path.join(app.getPath("temp"), `fortivpngui-log-${safeProfileSegment(profileName)}.html`);
+  fs.writeFileSync(out, html, "utf8");
+  void win.loadFile(out);
 }
 
 function reloadOpenLogWindows(): void {

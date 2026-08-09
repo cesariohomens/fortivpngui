@@ -63,6 +63,7 @@ import { ThemeToggleButton } from "./ThemeToggleButton";
 import { LanguageMenuButton } from "./LanguageMenuButton";
 import { useI18n, useTranslation } from "./I18nProvider";
 import { LanguageSelect } from "./LanguageSelect";
+import { FvpnScroll } from "./FvpnScroll";
 import { parseThemeMode } from "../../shared/theme";
 import { parseLanguageSetting } from "../../shared/locale";
 import type { AppColors } from "./theme";
@@ -231,6 +232,9 @@ export default function App() {
   const [copyVpnOpen, setCopyVpnOpen] = useState(false);
   const [copyVpnSource, setCopyVpnSource] = useState<string | null>(null);
   const [copyVpnName, setCopyVpnName] = useState("");
+
+  /** Electron does not support `window.confirm`; delete confirmation uses our MUI dialog. */
+  const [deleteConfirm, setDeleteConfirm] = useState<{ kind: "vpn" | "group"; name: string } | null>(null);
 
   const [loginOpen, setLoginOpen] = useState(false);
   const [loginTarget, setLoginTarget] = useState<string | null>(null);
@@ -591,6 +595,7 @@ export default function App() {
         setProfileOpen(false);
         setGroupOpen(false);
         setCopyVpnOpen(false);
+        setDeleteConfirm(null);
         setDisconnectWarn(null);
         setGwCertDlg(null);
         setLoginOpen(false);
@@ -687,7 +692,7 @@ export default function App() {
     }
   };
 
-  const deleteProfile = async (name: string) => {
+  const deleteProfile = (name: string) => {
     const p = profiles.find((x) => x.name === name);
     if (!p) return;
     if (p.origin === "global") {
@@ -699,10 +704,25 @@ export default function App() {
       notify(t("notify.mustDisconnect"));
       return;
     }
-    if (!confirm(t("notify.confirmDeleteVpn", { name }))) return;
-    await window.fvpn.deleteProfile(name);
-    if (selectedProfileName === name) setSelectedProfileName(null);
-    await refresh();
+    setDeleteConfirm({ kind: "vpn", name });
+  };
+
+  const confirmDelete = async () => {
+    const target = deleteConfirm;
+    if (!target) return;
+    setDeleteConfirm(null);
+    try {
+      if (target.kind === "vpn") {
+        await window.fvpn.deleteProfile(target.name);
+        if (selectedProfileName === target.name) setSelectedProfileName(null);
+      } else {
+        await window.fvpn.deleteGroup(target.name);
+        if (selectedGroupName === target.name) setSelectedGroupName(null);
+      }
+      await refresh();
+    } catch (e) {
+      notify((e as Error).message);
+    }
   };
 
   const duplicateProfile = (name: string) => {
@@ -786,11 +806,8 @@ export default function App() {
     }
   };
 
-  const deleteGroup = async (name: string) => {
-    if (!confirm(t("notify.confirmDeleteGroup", { name }))) return;
-    await window.fvpn.deleteGroup(name);
-    if (selectedGroupName === name) setSelectedGroupName(null);
-    await refresh();
+  const deleteGroup = (name: string) => {
+    setDeleteConfirm({ kind: "group", name });
   };
 
   const duplicateGroup = async (name: string) => {
@@ -988,7 +1005,7 @@ export default function App() {
 
   if (!settings) {
     return (
-      <Box p={2} bgcolor={colors.background} minHeight="100vh">
+      <Box p={2} bgcolor={colors.background} height="100%">
         <Typography>{t("common.loading")}</Typography>
       </Box>
     );
@@ -1003,94 +1020,96 @@ export default function App() {
         title={title}
         action={<Chip size="small" label={t("table.profileCount", { count: items.length })} sx={{ bgcolor: colors.surfaceHigh, color: colors.muted }} />}
       />
-      <TableContainer sx={{ overflowX: "auto" }}>
-        <Table size="small" sx={{ minWidth: 820 }}>
-          <TableHead>
-            <TableRow>
-              <TableCell>{t("table.status")}</TableCell>
-              <TableCell>{t("table.name")}</TableCell>
-              <TableCell>{t("table.gateway")}</TableCell>
-              <TableCell>{t("table.user")}</TableCell>
-              <TableCell>{t("table.traffic")}</TableCell>
-              <TableCell align="right">{t("table.actions")}</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {items.map((p) => {
-              const st = status[p.name] || "disconnected";
-              const active = st === "connected" || st === "connecting";
-              const selected = selectedProfileName === p.name;
-              const traffic = stats[p.name];
-              return (
-                <TableRow
-                  key={profileKey(p)}
-                  hover
-                  selected={selected}
-                  onClick={() => setSelectedProfileName(p.name)}
-                  onDoubleClick={() => {
-                    if (settings.connect_on_dblclick) void startVpnFlow(p.name);
-                    else editProfile(p);
-                  }}
-                  onContextMenu={(e) => {
-                    e.preventDefault();
-                    setSelectedProfileName(p.name);
-                    setProfileCtx({ top: e.clientY, left: e.clientX, name: p.name });
-                  }}
-                  sx={{ cursor: "default" }}
-                >
-                  <TableCell>
-                    <StatusChip state={st} />
-                  </TableCell>
-                  <TableCell sx={{ fontWeight: 700 }}>{p.name}</TableCell>
-                  <TableCell sx={{ fontFamily: "JetBrains Mono, monospace" }}>
-                    {p.gateway_host}:{p.gateway_port}
-                  </TableCell>
-                  <TableCell>{p.username}</TableCell>
-                  <TableCell sx={{ fontFamily: "JetBrains Mono, monospace" }}>
-                    {formatBytes(traffic?.bytes_read)} / {formatBytes(traffic?.bytes_written)}
-                  </TableCell>
-                  <TableCell align="right">
-                    <Tooltip title={active ? t("toolbar.disconnect") : t("toolbar.connect")}>
-                      <IconButton
-                        size="small"
-                        color={active ? "error" : "primary"}
-                        disabled={!ofvPath && !active}
-                        onClick={() => void (active ? stopVpn(p.name) : startVpnFlow(p.name))}
-                      >
-                        {active ? <StopIcon fontSize="small" /> : <PlayArrowIcon fontSize="small" />}
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title={t("toolbar.edit")}>
-                      <span>
-                        <IconButton size="small" disabled={p.origin === "global" || active} onClick={() => editProfile(p)}>
-                          <EditIcon fontSize="small" />
+      <FvpnScroll defer={false}>
+        <TableContainer>
+          <Table size="small" sx={{ minWidth: 820 }}>
+            <TableHead>
+              <TableRow>
+                <TableCell>{t("table.status")}</TableCell>
+                <TableCell>{t("table.name")}</TableCell>
+                <TableCell>{t("table.gateway")}</TableCell>
+                <TableCell>{t("table.user")}</TableCell>
+                <TableCell>{t("table.traffic")}</TableCell>
+                <TableCell align="right">{t("table.actions")}</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {items.map((p) => {
+                const st = status[p.name] || "disconnected";
+                const active = st === "connected" || st === "connecting";
+                const selected = selectedProfileName === p.name;
+                const traffic = stats[p.name];
+                return (
+                  <TableRow
+                    key={profileKey(p)}
+                    hover
+                    selected={selected}
+                    onClick={() => setSelectedProfileName(p.name)}
+                    onDoubleClick={() => {
+                      if (settings.connect_on_dblclick) void startVpnFlow(p.name);
+                      else editProfile(p);
+                    }}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      setSelectedProfileName(p.name);
+                      setProfileCtx({ top: e.clientY, left: e.clientX, name: p.name });
+                    }}
+                    sx={{ cursor: "default" }}
+                  >
+                    <TableCell>
+                      <StatusChip state={st} />
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>{p.name}</TableCell>
+                    <TableCell sx={{ fontFamily: "JetBrains Mono, monospace" }}>
+                      {p.gateway_host}:{p.gateway_port}
+                    </TableCell>
+                    <TableCell>{p.username}</TableCell>
+                    <TableCell sx={{ fontFamily: "JetBrains Mono, monospace" }}>
+                      {formatBytes(traffic?.bytes_read)} / {formatBytes(traffic?.bytes_written)}
+                    </TableCell>
+                    <TableCell align="right">
+                      <Tooltip title={active ? t("toolbar.disconnect") : t("toolbar.connect")}>
+                        <IconButton
+                          size="small"
+                          color={active ? "error" : "primary"}
+                          disabled={!ofvPath && !active}
+                          onClick={() => void (active ? stopVpn(p.name) : startVpnFlow(p.name))}
+                        >
+                          {active ? <StopIcon fontSize="small" /> : <PlayArrowIcon fontSize="small" />}
                         </IconButton>
-                      </span>
-                    </Tooltip>
-                    <Tooltip title={t("toolbar.copy")}>
-                      <IconButton size="small" onClick={() => void duplicateProfile(p.name)}>
-                        <ContentCopyIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title={t("toolbar.delete")}>
-                      <span>
-                        <IconButton size="small" disabled={p.origin === "global" || active} onClick={() => void deleteProfile(p.name)}>
-                          <DeleteIcon fontSize="small" />
+                      </Tooltip>
+                      <Tooltip title={t("toolbar.edit")}>
+                        <span>
+                          <IconButton size="small" disabled={p.origin === "global" || active} onClick={() => editProfile(p)}>
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                      <Tooltip title={t("toolbar.copy")}>
+                        <IconButton size="small" onClick={() => void duplicateProfile(p.name)}>
+                          <ContentCopyIcon fontSize="small" />
                         </IconButton>
-                      </span>
-                    </Tooltip>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-      </TableContainer>
+                      </Tooltip>
+                      <Tooltip title={t("toolbar.delete")}>
+                        <span>
+                          <IconButton size="small" disabled={p.origin === "global" || active} onClick={() => void deleteProfile(p.name)}>
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </FvpnScroll>
     </Paper>
   );
 
   return (
-    <Box minHeight="100vh" bgcolor={colors.background} color={colors.text} display="flex">
+    <Box height="100%" bgcolor={colors.background} color={colors.text} display="flex" overflow="hidden">
       <Box
         component="nav"
         width={navWidth}
@@ -1159,12 +1178,18 @@ export default function App() {
         </Stack>
       </Box>
 
-      <Box ml={{ xs: 0, md: `${navWidth}px` }} flex={1} minWidth={0}>
+      <Box
+        ml={{ xs: 0, md: `${navWidth}px` }}
+        flex={1}
+        minWidth={0}
+        height="100%"
+        display="flex"
+        flexDirection="column"
+        overflow="hidden"
+      >
         <Box
           height={64}
-          position="sticky"
-          top={0}
-          zIndex={10}
+          flexShrink={0}
           bgcolor={colors.background}
           borderBottom={`1px solid ${colors.outline}`}
           display="flex"
@@ -1190,11 +1215,12 @@ export default function App() {
         </Box>
 
         {!ofvPath && (
-          <Alert severity="error" sx={{ m: 2 }}>
+          <Alert severity="error" sx={{ mx: 2, mt: 2, flexShrink: 0 }}>
             {t("alert.ofvNotFound")}
           </Alert>
         )}
 
+        <FvpnScroll defer={false} style={{ flex: 1, minHeight: 0 }}>
         <Box p={3}>
           {(view === "vpn" || view === "groups") && (
             <Stack direction="row" flexWrap="wrap" gap={1} mb={2} p={1} sx={sectionSx(colors)}>
@@ -1261,46 +1287,48 @@ export default function App() {
           {view === "groups" && (
             <Paper sx={sectionSx(colors)}>
               <SectionTitle icon={<GroupWorkIcon fontSize="small" sx={{ color: colors.primary }} />} title={t("group.title")} />
-              <TableContainer sx={{ overflowX: "auto" }}>
-                <Table size="small" sx={{ minWidth: 680 }}>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>{t("table.status")}</TableCell>
-                      <TableCell>{t("table.name")}</TableCell>
-                      <TableCell>{t("table.vpns")}</TableCell>
-                      <TableCell align="right">{t("table.actions")}</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {groups.map((g) => {
-                      const st = groupStatus(g);
-                      return (
-                        <TableRow key={g.name} hover selected={selectedGroupName === g.name} onClick={() => setSelectedGroupName(g.name)} onDoubleClick={() => (settings.connect_on_dblclick ? void connectGroup(g) : editGroup(g))}>
-                          <TableCell>
-                            <StatusChip state={st} />
-                          </TableCell>
-                          <TableCell sx={{ fontWeight: 700 }}>{g.name}</TableCell>
-                          <TableCell>{uniq([...g.localMembers, ...g.globalMembers]).join(", ")}</TableCell>
-                          <TableCell align="right">
-                            <IconButton size="small" color={st === "connected" || st === "connecting" ? "error" : "primary"} onClick={() => void (st === "connected" || st === "connecting" ? disconnectGroup(g) : connectGroup(g))}>
-                              {st === "connected" || st === "connecting" ? <StopIcon fontSize="small" /> : <PlayArrowIcon fontSize="small" />}
-                            </IconButton>
-                            <IconButton size="small" onClick={() => void duplicateGroup(g.name)}>
-                              <ContentCopyIcon fontSize="small" />
-                            </IconButton>
-                            <IconButton size="small" onClick={() => editGroup(g)}>
-                              <EditIcon fontSize="small" />
-                            </IconButton>
-                            <IconButton size="small" onClick={() => void deleteGroup(g.name)}>
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </TableContainer>
+              <FvpnScroll defer={false}>
+                <TableContainer>
+                  <Table size="small" sx={{ minWidth: 680 }}>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>{t("table.status")}</TableCell>
+                        <TableCell>{t("table.name")}</TableCell>
+                        <TableCell>{t("table.vpns")}</TableCell>
+                        <TableCell align="right">{t("table.actions")}</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {groups.map((g) => {
+                        const st = groupStatus(g);
+                        return (
+                          <TableRow key={g.name} hover selected={selectedGroupName === g.name} onClick={() => setSelectedGroupName(g.name)} onDoubleClick={() => (settings.connect_on_dblclick ? void connectGroup(g) : editGroup(g))}>
+                            <TableCell>
+                              <StatusChip state={st} />
+                            </TableCell>
+                            <TableCell sx={{ fontWeight: 700 }}>{g.name}</TableCell>
+                            <TableCell>{uniq([...g.localMembers, ...g.globalMembers]).join(", ")}</TableCell>
+                            <TableCell align="right">
+                              <IconButton size="small" color={st === "connected" || st === "connecting" ? "error" : "primary"} onClick={() => void (st === "connected" || st === "connecting" ? disconnectGroup(g) : connectGroup(g))}>
+                                {st === "connected" || st === "connecting" ? <StopIcon fontSize="small" /> : <PlayArrowIcon fontSize="small" />}
+                              </IconButton>
+                              <IconButton size="small" onClick={() => void duplicateGroup(g.name)}>
+                                <ContentCopyIcon fontSize="small" />
+                              </IconButton>
+                              <IconButton size="small" onClick={() => editGroup(g)}>
+                                <EditIcon fontSize="small" />
+                              </IconButton>
+                              <IconButton size="small" onClick={() => void deleteGroup(g.name)}>
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </FvpnScroll>
             </Paper>
           )}
 
@@ -1380,6 +1408,7 @@ export default function App() {
             </Stack>
           )}
         </Box>
+        </FvpnScroll>
       </Box>
 
       <Menu
@@ -1501,7 +1530,12 @@ export default function App() {
           <Tab icon={<TuneIcon />} iconPosition="start" label={t("editor.preferences")} />
           <Tab icon={<SettingsIcon />} iconPosition="start" label={t("editor.options")} />
         </Tabs>
-        <DialogContent dividers sx={{ overflowY: "auto", flex: "1 1 auto" }}>
+        <DialogContent
+          dividers
+          sx={{ overflow: "hidden", flex: "1 1 auto", display: "flex", flexDirection: "column", p: 0 }}
+        >
+          <FvpnScroll defer={false} style={{ flex: 1, minHeight: 0 }}>
+            <Box sx={{ px: 3, py: 2 }}>
           {profileEditorTab === 0 ? (
             <Stack spacing={2}>
               <Paper sx={sectionSx(colors)}>
@@ -1639,6 +1673,8 @@ export default function App() {
               </Paper>
             </Stack>
           )}
+            </Box>
+          </FvpnScroll>
         </DialogContent>
         <DialogActions sx={{ flexShrink: 0 }}>
           <Button onClick={() => setProfileOpen(false)}>{t("common.cancel")}</Button>
@@ -1689,43 +1725,63 @@ export default function App() {
         </DialogActions>
       </Dialog>
 
-      <Dialog open={groupOpen} onClose={() => setGroupOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>{groupOriginalName ? t("group.edit", { name: groupOriginalName }) : t("group.add")}</DialogTitle>
-        <DialogContent dividers>
-          <Stack spacing={2}>
-            <TextField autoFocus={!groupOriginalName} label={t("table.name")} value={groupDraftName} onChange={(e) => setGroupDraftName(e.target.value)} />
-            <Paper sx={sectionSx(colors)}>
-              <SectionTitle title={t("group.members")} />
-              <List dense>
-                {profiles.map((p) => {
-                  const key = groupKey(p.origin, p.name);
-                  return (
-                    <ListItemButton
-                      key={key}
-                      onClick={() => {
-                        const next = new Set(groupMembers);
-                        if (next.has(key)) next.delete(key);
-                        else next.add(key);
-                        setGroupMembers(next);
-                      }}
-                    >
-                      <Checkbox checked={groupMembers.has(key)} tabIndex={-1} />
-                      <Box flex={1}>
-                        <Typography variant="body2" fontWeight={700}>
-                          {p.name}
-                        </Typography>
-                        <Typography variant="caption" color={colors.muted}>
-                          {p.origin}
-                        </Typography>
-                      </Box>
-                    </ListItemButton>
-                  );
-                })}
-              </List>
-            </Paper>
-          </Stack>
+      <Dialog
+        open={groupOpen}
+        onClose={() => setGroupOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        scroll="paper"
+        PaperProps={{
+          sx: {
+            maxHeight: "min(640px, calc(100vh - 48px))",
+            display: "flex",
+            flexDirection: "column",
+          },
+        }}
+      >
+        <DialogTitle sx={{ flexShrink: 0 }}>
+          {groupOriginalName ? t("group.edit", { name: groupOriginalName }) : t("group.add")}
+        </DialogTitle>
+        <DialogContent
+          dividers
+          sx={{ overflow: "hidden", flex: "1 1 auto", display: "flex", flexDirection: "column", p: 0 }}
+        >
+          <FvpnScroll defer={false} style={{ flex: 1, minHeight: 0 }}>
+            <Stack spacing={2} sx={{ px: 3, py: 2 }}>
+              <TextField autoFocus={!groupOriginalName} label={t("table.name")} value={groupDraftName} onChange={(e) => setGroupDraftName(e.target.value)} />
+              <Paper sx={sectionSx(colors)}>
+                <SectionTitle title={t("group.members")} />
+                <List dense>
+                  {profiles.map((p) => {
+                    const key = groupKey(p.origin, p.name);
+                    return (
+                      <ListItemButton
+                        key={key}
+                        onClick={() => {
+                          const next = new Set(groupMembers);
+                          if (next.has(key)) next.delete(key);
+                          else next.add(key);
+                          setGroupMembers(next);
+                        }}
+                      >
+                        <Checkbox checked={groupMembers.has(key)} tabIndex={-1} />
+                        <Box flex={1}>
+                          <Typography variant="body2" fontWeight={700}>
+                            {p.name}
+                          </Typography>
+                          <Typography variant="caption" color={colors.muted}>
+                            {p.origin}
+                          </Typography>
+                        </Box>
+                      </ListItemButton>
+                    );
+                  })}
+                </List>
+              </Paper>
+            </Stack>
+          </FvpnScroll>
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={{ flexShrink: 0 }}>
           <Button onClick={() => setGroupOpen(false)}>{t("common.cancel")}</Button>
           <Button variant="contained" onClick={() => void saveGroup()}>
             {t("common.save")}
@@ -1835,8 +1891,12 @@ export default function App() {
         }}
       >
         <DialogTitle sx={{ flexShrink: 0 }}>{t("changelog.title")}</DialogTitle>
-        <DialogContent dividers sx={{ overflowY: "auto", flex: "1 1 auto" }}>
-          <List dense>
+        <DialogContent
+          dividers
+          sx={{ overflow: "hidden", flex: "1 1 auto", display: "flex", flexDirection: "column", p: 0 }}
+        >
+          <FvpnScroll defer={false} style={{ flex: 1, minHeight: 0 }}>
+          <List dense sx={{ px: 1, py: 0.5 }}>
             <ListItemButton sx={{ alignItems: "flex-start", py: 1.5 }}>
               <Box>
                 <Typography fontWeight={700}>0.3.0</Typography>
@@ -1887,6 +1947,7 @@ export default function App() {
               </Box>
             </ListItemButton>
           </List>
+          </FvpnScroll>
         </DialogContent>
         <DialogActions sx={{ flexShrink: 0 }}>
           <Button
@@ -1897,6 +1958,60 @@ export default function App() {
             }}
           >
             {t("common.ok")}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(deleteConfirm)}
+        onClose={() => setDeleteConfirm(null)}
+        maxWidth="xs"
+        fullWidth
+        slotProps={{
+          paper: {
+            sx: {
+              bgcolor: colors.surface,
+              border: `1px solid ${colors.outline}`,
+              borderRadius: 3,
+              backgroundImage: "none",
+            },
+          },
+        }}
+      >
+        <DialogTitle
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 1,
+            py: 1.5,
+            px: 2,
+            borderBottom: `1px solid ${colors.outline}`,
+            color: colors.text,
+            fontWeight: 700,
+            fontSize: "1rem",
+          }}
+        >
+          <WarningAmberIcon fontSize="small" sx={{ color: colors.warning }} />
+          {t("toolbar.delete")}
+          <Box flex={1} />
+          <IconButton size="small" onClick={() => setDeleteConfirm(null)} aria-label={t("common.close")} sx={{ color: colors.muted }}>
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent sx={{ px: 3, pt: 0, pb: 2 }}>
+          <Stack alignItems="center" spacing={2} sx={{ pt: 4 }}>
+            <Typography variant="h6" fontWeight={800} color={colors.text} textAlign="center">
+              {deleteConfirm ? t("notify.deleteNamed", { name: deleteConfirm.name }) : ""}
+            </Typography>
+            <Typography variant="body2" color={colors.text} textAlign="center" lineHeight={1.6} maxWidth={360}>
+              {deleteConfirm?.kind === "group" ? t("notify.confirmDeleteGroup") : t("notify.confirmDeleteVpn")}
+            </Typography>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteConfirm(null)}>{t("common.cancel")}</Button>
+          <Button variant="contained" color="error" onClick={() => void confirmDelete()}>
+            {t("toolbar.delete")}
           </Button>
         </DialogActions>
       </Dialog>
@@ -1958,24 +2073,29 @@ export default function App() {
                 <Typography variant="caption" color={colors.muted} fontWeight={600} sx={{ display: "block", mb: 0.5 }}>
                   {t("disconnect.details")}
                 </Typography>
-                <Box
-                  component="pre"
-                  sx={{
-                    m: 0,
-                    p: 1.5,
+                <FvpnScroll
+                  defer={false}
+                  style={{
                     maxHeight: 160,
-                    overflow: "auto",
-                    borderRadius: 2,
+                    borderRadius: 8,
                     border: `1px solid ${colors.outline}`,
-                    bgcolor: colors.surfaceLow,
-                    color: colors.muted,
-                    fontSize: "0.72rem",
-                    whiteSpace: "pre-wrap",
-                    wordBreak: "break-word",
+                    background: colors.surfaceLow,
                   }}
                 >
-                  {disconnectWarn.detail}
-                </Box>
+                  <Box
+                    component="pre"
+                    sx={{
+                      m: 0,
+                      p: 1.5,
+                      color: colors.muted,
+                      fontSize: "0.72rem",
+                      whiteSpace: "pre-wrap",
+                      wordBreak: "break-word",
+                    }}
+                  >
+                    {disconnectWarn.detail}
+                  </Box>
+                </FvpnScroll>
               </Box>
             ) : null}
           </Stack>
@@ -2211,14 +2331,32 @@ export default function App() {
         </DialogActions>
       </Dialog>
 
-      <Dialog open={importResultText !== null} onClose={() => setImportResultText(null)} maxWidth="sm" fullWidth>
-        <DialogTitle>{t("import.title")}</DialogTitle>
-        <DialogContent dividers>
-          <Typography variant="body2" component="pre" sx={{ whiteSpace: "pre-wrap", fontFamily: "inherit", m: 0 }}>
-            {importResultText}
-          </Typography>
+      <Dialog
+        open={importResultText !== null}
+        onClose={() => setImportResultText(null)}
+        maxWidth="sm"
+        fullWidth
+        scroll="paper"
+        PaperProps={{
+          sx: {
+            maxHeight: "min(480px, calc(100vh - 64px))",
+            display: "flex",
+            flexDirection: "column",
+          },
+        }}
+      >
+        <DialogTitle sx={{ flexShrink: 0 }}>{t("import.title")}</DialogTitle>
+        <DialogContent
+          dividers
+          sx={{ overflow: "hidden", flex: "1 1 auto", display: "flex", flexDirection: "column", p: 0 }}
+        >
+          <FvpnScroll defer={false} style={{ flex: 1, minHeight: 0 }}>
+            <Typography variant="body2" component="pre" sx={{ whiteSpace: "pre-wrap", fontFamily: "inherit", m: 0, px: 3, py: 2 }}>
+              {importResultText}
+            </Typography>
+          </FvpnScroll>
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={{ flexShrink: 0 }}>
           <Button variant="contained" onClick={() => setImportResultText(null)}>
             {t("common.ok")}
           </Button>

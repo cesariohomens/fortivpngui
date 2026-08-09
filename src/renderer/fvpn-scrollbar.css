@@ -1,0 +1,15 @@
+/**
+ * OverlayScrollbars theme — thin 6px pill thumbs (light/dark via --fvpn-scrollbar-thumb).
+ * Native GTK/Electron scrollbars ignore ::-webkit-scrollbar; these replace them.
+ */
+.os-theme-fvpn {
+  --os-size: 6px;
+  --os-padding-perpendicular: 2px;
+  --os-padding-axis: 2px;
+  --os-track-border-radius: 999px;
+  --os-handle-border-radius: 999px;
+  --os-handle-bg: color-mix(in srgb, var(--fvpn-scrollbar-thumb, #8b919e) 70%, transparent);
+  --os-handle-bg-hover: color-mix(in srgb, var(--fvpn-scrollbar-thumb, #8b919e) 85%, transparent);
+  --os-handle-bg-active: color-mix(in srgb, var(--fvpn-scrollbar-thumb, #8b919e) 95%, transparent);
+  --os-track-bg: transparent;
+}
