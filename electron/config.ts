@@ -2,7 +2,7 @@ import path from "path";
 import os from "os";
 
 /** Bump when changelog content changes (shown until user marks read). Keep in sync with `shared/constants.ts`. */
-export const CHANGELOG_REV = 7;
+export const CHANGELOG_REV = 8;
 
 export const NAME_VALIDATOR = /^[a-zA-ZäöüÄÖÜ0-9 \-_]{3,}$/;
 
