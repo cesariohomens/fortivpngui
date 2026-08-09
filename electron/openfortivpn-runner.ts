@@ -1,9 +1,16 @@
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { spawn, spawnSync, ChildProcess } from "child_process";
+import { spawn, ChildProcess } from "child_process";
 import type { VpnProfile } from "../shared/types.js";
 import { readMainSettings } from "./settings-service.js";
+import {
+  detectOpenfortivpnVersion,
+  resolveOpenfortivpnExecutable,
+  supportsConfigKey,
+} from "./openfortivpn-capabilities.js";
+
+export { resolveOpenfortivpnExecutable };
 
 export interface OpenfortivpnLog {
   profileName: string;
@@ -31,45 +38,73 @@ export function parseTrustedCertDigests(raw: string | undefined | null): string[
   return out;
 }
 
-/** Build openfortivpn-compatible config file (key names with hyphens per upstream). */
-function buildOpenfortivpnConfig(profile: VpnProfile, password: string, otp?: string): string {
+export interface BuiltOpenfortivpnConfig {
+  config: string;
+  /** Keys left out because the installed openfortivpn is too old to parse them. */
+  skipped: string[];
+}
+
+/**
+ * Build openfortivpn-compatible config file (key names with hyphens per upstream).
+ *
+ * Booleans whose upstream default is the enabled value are written explicitly, otherwise unchecking them in the UI
+ * would be a no-op. Keys that only exist in newer releases are gated and emitted last: `load_config()` stops parsing
+ * at the first key it does not recognise, so anything after a rejected key would be dropped without an error.
+ */
+function buildOpenfortivpnConfig(profile: VpnProfile, password: string, otp?: string): BuiltOpenfortivpnConfig {
   const lines: string[] = [];
-  lines.push(`host = ${profile.gateway_host}`);
-  lines.push(`port = ${profile.gateway_port || 443}`);
-  if (profile.username) lines.push(`username = ${profile.username}`);
-  if (password) lines.push(`password = ${password}`);
-  if (otp) lines.push(`otp = ${otp}`);
-  if (profile.realm) lines.push(`realm = ${profile.realm}`);
-  if (!profile.set_routes) lines.push("set-routes = 0");
-  if (profile.set_dns) lines.push("set-dns = 1");
-  if (profile.half_internet_routers) lines.push("half-internet-routes = 1");
-  if (profile.persistent > 0) lines.push(`persistent = ${Math.trunc(profile.persistent)}`);
-  if (profile.ca_file) lines.push(`ca-file = ${profile.ca_file}`);
-  if (profile.user_cert) lines.push(`user-cert = ${profile.user_cert}`);
-  if (profile.user_key) lines.push(`user-key = ${profile.user_key}`);
+  const skipped: string[] = [];
+  const push = (key: string, value: string | number) => {
+    if (!supportsConfigKey(key)) {
+      skipped.push(key);
+      return;
+    }
+    /* A newline pasted into a field would turn the rest of the value into an unknown key and abort the parse. */
+    lines.push(`${key} = ${String(value).replace(/[\r\n]+/g, " ")}`);
+  };
+
+  push("host", profile.gateway_host);
+  push("port", profile.gateway_port || 443);
+  if (profile.username) push("username", profile.username);
+  if (password) push("password", password);
+  if (otp) push("otp", otp);
+  if (profile.realm) push("realm", profile.realm);
+  /* `set-routes` and `set-dns` default to 1 upstream, so the disabled state has to be written out. */
+  push("set-routes", profile.set_routes ? 1 : 0);
+  push("set-dns", profile.set_dns ? 1 : 0);
+  if (profile.half_internet_routers) push("half-internet-routes", 1);
+  if (profile.persistent > 0) push("persistent", Math.trunc(profile.persistent));
+  if (profile.ca_file) push("ca-file", profile.ca_file);
+  if (profile.user_cert) push("user-cert", profile.user_cert);
+  if (profile.user_key) push("user-key", profile.user_key);
   for (const digest of parseTrustedCertDigests(profile.trusted_cert)) {
-    lines.push(`trusted-cert = ${digest}`);
+    push("trusted-cert", digest);
   }
-  if (profile.insecure_ssl) {
-    lines.push(`insecure-ssl = 1`);
-  }
-  if (profile.seclevel1) lines.push(`seclevel-1 = 1`);
+  if (profile.insecure_ssl) push("insecure-ssl", 1);
+  if (profile.cipher_list?.trim()) push("cipher-list", profile.cipher_list.trim());
+  if (profile.pppd_use_peerdns) push("pppd-use-peerdns", 1);
+  if (profile.pppd_log_file) push("pppd-log", profile.pppd_log_file);
+  if (profile.pppd_plugin_file) push("pppd-plugin", profile.pppd_plugin_file);
+  if (profile.pppd_ifname) push("pppd-ifname", profile.pppd_ifname);
+  if (profile.pppd_ipparam) push("pppd-ipparam", profile.pppd_ipparam);
+  if (profile.pppd_call) push("pppd-call", profile.pppd_call);
+  if (profile.otp_prompt) push("otp-prompt", profile.otp_prompt);
+  if (profile.otp_delay) push("otp-delay", profile.otp_delay);
+  if (profile.no_ftm_push) push("no-ftm-push", 1);
+
+  /* Version-gated keys last, oldest first. */
+  if (profile.seclevel1) push("seclevel-1", 1);
   const minTls = (profile.min_tls || "").trim();
-  if (minTls && !/^default$/i.test(minTls)) {
-    lines.push(`min-tls = ${minTls}`);
-  }
-  if (profile.pppd_no_peerdns) lines.push(`pppd-no-peerdns = 1`);
-  if (profile.pppd_no_peerdns) lines.push("pppd-use-peerdns = 0");
-  if (profile.pppd_accept_remote) lines.push(`pppd-accept-remote = 1`);
-  if (profile.pppd_log_file) lines.push(`pppd-log = ${profile.pppd_log_file}`);
-  if (profile.pppd_plugin_file) lines.push(`pppd-plugin = ${profile.pppd_plugin_file}`);
-  if (profile.pppd_ifname) lines.push(`pppd-ifname = ${profile.pppd_ifname}`);
-  if (profile.pppd_ipparam) lines.push(`pppd-ipparam = ${profile.pppd_ipparam}`);
-  if (profile.pppd_call) lines.push(`pppd-call = ${profile.pppd_call}`);
-  if (profile.otp_prompt) lines.push(`otp-prompt = ${profile.otp_prompt}`);
-  if (profile.otp_delay) lines.push(`otp-delay = ${profile.otp_delay}`);
-  if (profile.no_ftm_push) lines.push(`no-ftm-push = 1`);
-  return lines.join("\n") + "\n";
+  if (minTls && !/^default$/i.test(minTls)) push("min-tls", minTls);
+  if (profile.pem_passphrase) push("pem-passphrase", profile.pem_passphrase);
+  if (profile.user_agent?.trim()) push("user-agent", profile.user_agent.trim());
+  if (profile.hostcheck?.trim()) push("hostcheck", profile.hostcheck.trim());
+  if (profile.check_virtual_desktop?.trim()) push("check-virtual-desktop", profile.check_virtual_desktop.trim());
+  /* Upstream default depends on the pppd it was built against (0 below pppd 2.5.0, 1 from 2.5.0), so write both states. */
+  push("pppd-accept-remote", profile.pppd_accept_remote ? 1 : 0);
+  if (profile.sni?.trim()) push("sni", profile.sni.trim());
+
+  return { config: lines.join("\n") + "\n", skipped };
 }
 
 const running = new Map<string, { proc: ChildProcess; configPath: string }>();
@@ -147,21 +182,6 @@ export function stopEveryOpenfortivpnAndSweepTemp(): void {
   sweepOpenfortivpnConfigDir();
 }
 
-/**
- * Absolute path to openfortivpn for `sudo` argv.
- * Sudoers `NOPASSWD: /usr/bin/openfortivpn` only matches that path — not bare `openfortivpn`.
- */
-export function resolveOpenfortivpnExecutable(): string | null {
-  const env = process.env.OPENFORTIVPN_PATH?.trim();
-  if (env) return path.isAbsolute(env) ? env : path.resolve(env);
-  for (const p of ["/usr/bin/openfortivpn", "/usr/local/bin/openfortivpn"]) {
-    if (fs.existsSync(p)) return p;
-  }
-  const r = spawnSync("which", ["openfortivpn"], { encoding: "utf8" });
-  if (r.status === 0 && r.stdout.trim()) return r.stdout.trim();
-  return null;
-}
-
 export function stopOpenfortivpn(name: string): void {
   const r = running.get(name);
   if (!r) return;
@@ -202,7 +222,17 @@ export function startOpenfortivpn(
   const cfgDir = openfortivpnConfigDir();
   fs.mkdirSync(cfgDir, { recursive: true });
   const configPath = path.join(cfgDir, `run-${name}-${Date.now()}.conf`);
-  fs.writeFileSync(configPath, buildOpenfortivpnConfig(profile, password, otp), { mode: 0o600 });
+  const built = buildOpenfortivpnConfig(profile, password, otp);
+  fs.writeFileSync(configPath, built.config, { mode: 0o600 });
+
+  if (built.skipped.length > 0) {
+    const v = detectOpenfortivpnVersion();
+    onLog({
+      profileName: name,
+      line: `[fortivpngui] openfortivpn ${v?.raw ?? "(unknown version)"} does not support these options, they were not applied: ${built.skipped.join(", ")}.`,
+      stream: "stderr",
+    });
+  }
 
   const digests = parseTrustedCertDigests(profile.trusted_cert);
   const rawTc = profile.trusted_cert?.trim();

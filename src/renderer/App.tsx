@@ -11,6 +11,7 @@ import {
   DialogTitle,
   Divider,
   FormControlLabel,
+  FormHelperText,
   IconButton,
   InputAdornment,
   List,
@@ -90,6 +91,7 @@ const emptyProfile = (): VpnProfile => ({
   ca_file: "",
   user_cert: "",
   user_key: "",
+  pem_passphrase: "",
   trusted_cert: "",
   verify_cert: false,
   debug: false,
@@ -98,7 +100,7 @@ const emptyProfile = (): VpnProfile => ({
   otp_prompt: "",
   otp_delay: 0,
   no_ftm_push: false,
-  pppd_no_peerdns: false,
+  pppd_use_peerdns: false,
   pppd_accept_remote: false,
   pppd_log_file: "",
   pppd_plugin_file: "",
@@ -108,6 +110,11 @@ const emptyProfile = (): VpnProfile => ({
   insecure_ssl: false,
   seclevel1: false,
   min_tls: "default",
+  cipher_list: "",
+  sni: "",
+  user_agent: "",
+  hostcheck: "",
+  check_virtual_desktop: "",
   trust_all_gw_certs: false,
 });
 
@@ -222,6 +229,7 @@ export default function App() {
   const [credentialsEnabled, setCredentialsEnabled] = useState(false);
   const [certificateEnabled, setCertificateEnabled] = useState(false);
   const [showProfilePassword, setShowProfilePassword] = useState(false);
+  const [showPemPassphrase, setShowPemPassphrase] = useState(false);
 
   const [groupOpen, setGroupOpen] = useState(false);
   const [groupDraftName, setGroupDraftName] = useState("");
@@ -1588,6 +1596,23 @@ export default function App() {
                   <TextField disabled={!certificateEnabled || (certLocked)} label={t("editor.userCert")} value={profileDraft.user_cert} onChange={(e) => setProfileDraft({ ...profileDraft, user_cert: e.target.value })} />
                   <TextField disabled={!certificateEnabled || (certLocked)} label={t("editor.userKey")} value={profileDraft.user_key} onChange={(e) => setProfileDraft({ ...profileDraft, user_key: e.target.value })} />
                   <TextField disabled={!certificateEnabled || (certLocked)} label={t("editor.caFile")} value={profileDraft.ca_file} onChange={(e) => setProfileDraft({ ...profileDraft, ca_file: e.target.value })} />
+                  <TextField
+                    disabled={!certificateEnabled || certLocked}
+                    label={t("editor.pemPassphrase")}
+                    type={showPemPassphrase ? "text" : "password"}
+                    value={profileDraft.pem_passphrase}
+                    onChange={(e) => setProfileDraft({ ...profileDraft, pem_passphrase: e.target.value })}
+                    helperText={t("editor.pemPassphraseHelp")}
+                    InputProps={{
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton size="small" onClick={() => setShowPemPassphrase((v) => !v)}>
+                            {showPemPassphrase ? <VisibilityOff /> : <Visibility />}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
                 </Stack>
               </Paper>
               <Paper sx={sectionSx(colors)}>
@@ -1648,8 +1673,10 @@ export default function App() {
               <Paper sx={sectionSx(colors)}>
                 <SectionTitle title={t("editor.pppd")} />
                 <Stack p={2} spacing={1.5}>
-                  <FormControlLabel control={<Checkbox checked={profileDraft.pppd_no_peerdns} onChange={(_, c) => setProfileDraft({ ...profileDraft, pppd_no_peerdns: c })} />} label={t("editor.noPeerdns")} />
+                  <FormControlLabel control={<Checkbox checked={profileDraft.pppd_use_peerdns} onChange={(_, c) => setProfileDraft({ ...profileDraft, pppd_use_peerdns: c })} />} label={t("editor.usePeerdns")} />
+                  <FormHelperText sx={{ mt: -1, ml: 4 }}>{t("editor.usePeerdnsHelp")}</FormHelperText>
                   <FormControlLabel control={<Checkbox checked={profileDraft.pppd_accept_remote} onChange={(_, c) => setProfileDraft({ ...profileDraft, pppd_accept_remote: c })} />} label={t("editor.acceptRemote")} />
+                  <FormHelperText sx={{ mt: -1, ml: 4 }}>{t("editor.acceptRemoteHelp")}</FormHelperText>
                   <TextField label={t("editor.logFile")} value={profileDraft.pppd_log_file} onChange={(e) => setProfileDraft({ ...profileDraft, pppd_log_file: e.target.value })} />
                   <TextField label={t("editor.pluginFile")} value={profileDraft.pppd_plugin_file} onChange={(e) => setProfileDraft({ ...profileDraft, pppd_plugin_file: e.target.value })} />
                   <TextField label={t("editor.ifname")} value={profileDraft.pppd_ifname} onChange={(e) => setProfileDraft({ ...profileDraft, pppd_ifname: e.target.value })} />
@@ -1669,6 +1696,42 @@ export default function App() {
                       </MenuItem>
                     ))}
                   </Select>
+                  <TextField
+                    label={t("editor.cipherList")}
+                    value={profileDraft.cipher_list}
+                    onChange={(e) => setProfileDraft({ ...profileDraft, cipher_list: e.target.value })}
+                    placeholder="HIGH:!aNULL:!kRSA:!PSK:!SRP:!MD5:!RC4"
+                    helperText={t("editor.cipherListHelp")}
+                  />
+                </Stack>
+              </Paper>
+              <Paper sx={sectionSx(colors)}>
+                <SectionTitle title={t("editor.gatewayCompat")} />
+                <Stack p={2} spacing={2}>
+                  <TextField
+                    label={t("editor.sni")}
+                    value={profileDraft.sni}
+                    onChange={(e) => setProfileDraft({ ...profileDraft, sni: e.target.value })}
+                    helperText={t("editor.sniHelp")}
+                  />
+                  <TextField
+                    label={t("editor.userAgent")}
+                    value={profileDraft.user_agent}
+                    onChange={(e) => setProfileDraft({ ...profileDraft, user_agent: e.target.value })}
+                    helperText={t("editor.userAgentHelp")}
+                  />
+                  <TextField
+                    label={t("editor.hostcheck")}
+                    value={profileDraft.hostcheck}
+                    onChange={(e) => setProfileDraft({ ...profileDraft, hostcheck: e.target.value })}
+                    helperText={t("editor.hostcheckHelp")}
+                  />
+                  <TextField
+                    label={t("editor.checkVirtualDesktop")}
+                    value={profileDraft.check_virtual_desktop}
+                    onChange={(e) => setProfileDraft({ ...profileDraft, check_virtual_desktop: e.target.value })}
+                    helperText={t("editor.checkVirtualDesktopHelp")}
+                  />
                 </Stack>
               </Paper>
             </Stack>
@@ -1905,6 +1968,8 @@ export default function App() {
                     <li>{t("changelog.v030NoAutoReconnect")}</li>
                     <li>{t("changelog.v030DisconnectWarning")}</li>
                     <li>{t("changelog.v030PersistentSeconds")}</li>
+                    <li>{t("changelog.v030OpenfortivpnFixes")}</li>
+                    <li>{t("changelog.v030MoreOpenfortivpnOptions")}</li>
                     <li>{t("changelog.v030Rpm")}</li>
                   </Box>
                 </Typography>

@@ -35,6 +35,8 @@ export interface VpnProfile {
   ca_file: string;
   user_cert: string;
   user_key: string;
+  /** openfortivpn `pem-passphrase`: pass phrase for an encrypted `user_key` (>= 1.16.0). */
+  pem_passphrase: string;
   trusted_cert: string;
   verify_cert: boolean;
   debug: boolean;
@@ -44,7 +46,9 @@ export interface VpnProfile {
   otp_delay: number;
   /** Maps to openfortivpn `no-ftm-push`: prefer token/email/SMS over FortiToken Mobile push when the gateway offers both. */
   no_ftm_push: boolean;
-  pppd_no_peerdns: boolean;
+  /** openfortivpn `pppd-use-peerdns`: ask the peer for DNS servers and let pppd rewrite resolv.conf. Off by default upstream. */
+  pppd_use_peerdns: boolean;
+  /** openfortivpn `pppd-accept-remote` (>= 1.21.0): required by pppd >= 2.5.0, breaks older pppd. */
   pppd_accept_remote: boolean;
   pppd_log_file: string;
   pppd_plugin_file: string;
@@ -54,6 +58,16 @@ export interface VpnProfile {
   insecure_ssl: boolean;
   seclevel1: boolean;
   min_tls: string;
+  /** openfortivpn `cipher-list`: OpenSSL cipher string; preferred over `insecure_ssl` for gateways needing a specific cipher. */
+  cipher_list: string;
+  /** openfortivpn `sni` (>= 1.22.0): TLS server name sent to the gateway. */
+  sni: string;
+  /** openfortivpn `user-agent` (>= 1.16.0): User-Agent header sent to the gateway. */
+  user_agent: string;
+  /** openfortivpn `hostcheck` (>= 1.16.0): value reported for the FortiGate host check. */
+  hostcheck: string;
+  /** openfortivpn `check-virtual-desktop` (>= 1.16.0): value reported for the FortiGate virtual desktop check. */
+  check_virtual_desktop: string;
   trust_all_gw_certs: boolean;
 }
 

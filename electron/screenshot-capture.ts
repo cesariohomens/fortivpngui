@@ -74,6 +74,7 @@ async function ensureDemoData(): Promise<void> {
       ca_file: "",
       user_cert: "",
       user_key: "",
+      pem_passphrase: "",
       trusted_cert: "",
       verify_cert: false,
       debug: false,
@@ -82,7 +83,7 @@ async function ensureDemoData(): Promise<void> {
       otp_prompt: "",
       otp_delay: 0,
       no_ftm_push: false,
-      pppd_no_peerdns: false,
+      pppd_use_peerdns: false,
       pppd_accept_remote: false,
       pppd_log_file: "",
       pppd_plugin_file: "",
@@ -92,6 +93,11 @@ async function ensureDemoData(): Promise<void> {
       insecure_ssl: false,
       seclevel1: false,
       min_tls: "default",
+      cipher_list: "",
+      sni: "",
+      user_agent: "",
+      hostcheck: "",
+      check_virtual_desktop: "",
       trust_all_gw_certs: false,
     });
   }

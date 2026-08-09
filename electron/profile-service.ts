@@ -78,11 +78,14 @@ async function readProfileFromFile(
   const m = readMainSettings();
   const aes = includePassword && !m.use_system_password_store ? await getAesKeys() : null;
   let password = "";
+  let pemPassphrase = "";
   if (includePassword) {
     if (m.use_system_password_store) {
       password = (await keychain.keytarGet(`vpn:${name}`)) || "";
-    } else if (aes && vpn.password) {
-      password = aes128Decrypt(String(vpn.password), aes.key, aes.iv);
+      pemPassphrase = (await keychain.keytarGet(`vpnpem:${name}`)) || "";
+    } else if (aes) {
+      if (vpn.password) password = aes128Decrypt(String(vpn.password), aes.key, aes.iv);
+      if (cert.pem_passphrase) pemPassphrase = aes128Decrypt(String(cert.pem_passphrase), aes.key, aes.iv);
     }
   }
   return {
@@ -101,6 +104,7 @@ async function readProfileFromFile(
     ca_file: String(cert.ca_file || ""),
     user_cert: String(cert.user_cert || ""),
     user_key: String(cert.user_key || ""),
+    pem_passphrase: pemPassphrase,
     trusted_cert: trustedCertFromIniCert(cert),
     verify_cert: iniBool(cert.verify_cert),
     debug: iniBool(opt.debug),
@@ -109,7 +113,11 @@ async function readProfileFromFile(
     otp_prompt: String(opt.otp_prompt || ""),
     otp_delay: parseInt(String(opt.otp_delay || "0"), 10) || 0,
     no_ftm_push: iniBool(opt.no_ftm_push),
-    pppd_no_peerdns: iniBool(opt.pppd_no_peerdns),
+    /**
+     * Profiles written before the peerdns fix only carry `pppd_no_peerdns`, which never reached openfortivpn, so
+     * peerdns was effectively off whatever it said. Absent `pppd_use_peerdns` therefore means off, not `!no_peerdns`.
+     */
+    pppd_use_peerdns: iniBool(opt.pppd_use_peerdns),
     pppd_accept_remote: iniBool(opt.pppd_accept_remote),
     pppd_log_file: String(opt.pppd_log_file || ""),
     pppd_plugin_file: String(opt.pppd_plugin_file || ""),
@@ -119,6 +127,11 @@ async function readProfileFromFile(
     insecure_ssl: iniBool(opt.insecure_ssl),
     seclevel1: iniBool(opt.seclevel1),
     min_tls: String(opt.min_tls || "default"),
+    cipher_list: String(opt.cipher_list || ""),
+    sni: String(opt.sni || ""),
+    user_agent: String(opt.user_agent || ""),
+    hostcheck: String(opt.hostcheck || ""),
+    check_virtual_desktop: String(opt.check_virtual_desktop || ""),
     trust_all_gw_certs: iniBool(cert.trust_all_gw_certs),
   };
 }
@@ -160,11 +173,13 @@ export async function saveProfileLocal(profile: VpnProfile): Promise<void> {
   fs.mkdirSync(dir, { recursive: true });
   const aes = await getAesKeys();
   let encPass = "";
+  let encPemPassphrase = "";
   if (m.use_system_password_store) {
     await keychain.keytarSet(`vpn:${profile.name}`, profile.password);
-    encPass = "";
+    await keychain.keytarSet(`vpnpem:${profile.name}`, profile.pem_passphrase || "");
   } else {
     encPass = aes128Encrypt(profile.password.trim(), aes.key, aes.iv);
+    encPemPassphrase = profile.pem_passphrase ? aes128Encrypt(profile.pem_passphrase, aes.key, aes.iv) : "";
   }
   const obj: Record<string, Record<string, string | number | boolean>> = {
     vpn: {
@@ -181,6 +196,7 @@ export async function saveProfileLocal(profile: VpnProfile): Promise<void> {
       ca_file: profile.ca_file,
       user_cert: profile.user_cert,
       user_key: profile.user_key,
+      pem_passphrase: encPemPassphrase,
       verify_cert: profile.verify_cert,
       trusted_cert: parseTrustedCertDigests(profile.trusted_cert).join(" "),
       trust_all_gw_certs: profile.trust_all_gw_certs,
@@ -188,7 +204,9 @@ export async function saveProfileLocal(profile: VpnProfile): Promise<void> {
     options: {
       set_routes: profile.set_routes,
       set_dns: profile.set_dns,
-      pppd_no_peerdns: profile.pppd_no_peerdns,
+      pppd_use_peerdns: profile.pppd_use_peerdns,
+      /** Mirror for OpenFortiGUI and older FortiVPN GUI builds, which only know the inverted key. */
+      pppd_no_peerdns: !profile.pppd_use_peerdns,
       pppd_accept_remote: profile.pppd_accept_remote,
       insecure_ssl: profile.insecure_ssl,
       debug: profile.debug,
@@ -206,6 +224,11 @@ export async function saveProfileLocal(profile: VpnProfile): Promise<void> {
       pppd_call: profile.pppd_call,
       seclevel1: profile.seclevel1,
       min_tls: profile.min_tls,
+      cipher_list: profile.cipher_list,
+      sni: profile.sni,
+      user_agent: profile.user_agent,
+      hostcheck: profile.hostcheck,
+      check_virtual_desktop: profile.check_virtual_desktop,
     },
   };
   fs.writeFileSync(path.join(dir, `${profile.name.trim()}.conf`), ini.stringify(obj), { mode: 0o600 });
@@ -228,6 +251,7 @@ export async function deleteProfileLocal(name: string): Promise<boolean> {
   if (fs.existsSync(f)) {
     fs.unlinkSync(f);
     await keychain.keytarDelete(`vpn:${name}`).catch(() => {});
+    await keychain.keytarDelete(`vpnpem:${name}`).catch(() => {});
     return true;
   }
   return false;
