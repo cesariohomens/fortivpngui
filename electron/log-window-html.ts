@@ -48,16 +48,40 @@ export function buildPlainTextLogHtml(profileName: string, filePath: string, tok
     html, body { margin: 0; height: 100%; background: ${t.background}; color: ${t.onSurface}; color-scheme: ${resolved}; }
     body { display: flex; flex-direction: column; overflow: hidden; font-family: "JetBrains Mono", "Cascadia Code", "SFMono-Regular", Consolas, monospace; font-size: 12px; line-height: 1.55; }
     .os-theme-fvpn {
-      --os-size: 6px;
+      --os-size: 9.9px;
+      --os-btn-size: 9.9px;
       --os-padding-perpendicular: 2px;
       --os-padding-axis: 2px;
-      --os-track-border-radius: 999px;
-      --os-handle-border-radius: 999px;
+      --os-track-border-radius: 4px;
+      --os-handle-border-radius: 4px;
       --os-handle-bg: color-mix(in srgb, var(--fvpn-scrollbar-thumb, #8b919e) 70%, transparent);
       --os-handle-bg-hover: color-mix(in srgb, var(--fvpn-scrollbar-thumb, #8b919e) 85%, transparent);
       --os-handle-bg-active: color-mix(in srgb, var(--fvpn-scrollbar-thumb, #8b919e) 95%, transparent);
-      --os-track-bg: transparent;
+      --os-track-bg: color-mix(in srgb, var(--fvpn-scrollbar-thumb, #8b919e) 18%, transparent);
     }
+    .os-theme-fvpn.os-scrollbar-vertical { padding-block: var(--os-btn-size); }
+    .os-theme-fvpn.os-scrollbar-horizontal { padding-inline: var(--os-btn-size); }
+    .os-theme-fvpn .os-scrollbar-button {
+      position: absolute; z-index: 1; box-sizing: border-box; margin: 0; padding: 0; border: none; border-radius: 2px;
+      background: color-mix(in srgb, var(--fvpn-scrollbar-thumb, #8b919e) 28%, transparent);
+      color: var(--fvpn-scrollbar-thumb, #8b919e); cursor: pointer; display: flex; align-items: center; justify-content: center; pointer-events: auto;
+    }
+    .os-theme-fvpn .os-scrollbar-button:hover { background: color-mix(in srgb, var(--fvpn-scrollbar-thumb, #8b919e) 45%, transparent); }
+    .os-theme-fvpn .os-scrollbar-button:active { background: color-mix(in srgb, var(--fvpn-scrollbar-thumb, #8b919e) 60%, transparent); }
+    .os-theme-fvpn .os-scrollbar-button-up, .os-theme-fvpn .os-scrollbar-button-down { left: 0; width: 100%; height: var(--os-btn-size); }
+    .os-theme-fvpn .os-scrollbar-button-up { top: 0; }
+    .os-theme-fvpn .os-scrollbar-button-down { bottom: 0; }
+    .os-theme-fvpn .os-scrollbar-button-left, .os-theme-fvpn .os-scrollbar-button-right { top: 0; height: 100%; width: var(--os-btn-size); }
+    .os-theme-fvpn .os-scrollbar-button-left { left: 0; }
+    .os-theme-fvpn .os-scrollbar-button-right { right: 0; }
+    .os-theme-fvpn .os-scrollbar-button-up::before, .os-theme-fvpn .os-scrollbar-button-down::before,
+    .os-theme-fvpn .os-scrollbar-button-left::before, .os-theme-fvpn .os-scrollbar-button-right::before {
+      content: ""; display: block; width: 0; height: 0; border-style: solid;
+    }
+    .os-theme-fvpn .os-scrollbar-button-up::before { border-width: 0 3px 4px 3px; border-color: transparent transparent currentColor transparent; }
+    .os-theme-fvpn .os-scrollbar-button-down::before { border-width: 4px 3px 0 3px; border-color: currentColor transparent transparent transparent; }
+    .os-theme-fvpn .os-scrollbar-button-left::before { border-width: 3px 4px 3px 0; border-color: transparent currentColor transparent transparent; }
+    .os-theme-fvpn .os-scrollbar-button-right::before { border-width: 3px 0 3px 4px; border-color: transparent transparent transparent currentColor; }
     header { flex-shrink: 0; padding: 10px 14px; background: ${t.nav}; border-bottom: 1px solid ${t.outlineVariant}; font-family: Inter, "Segoe UI", sans-serif; }
     .log-head-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
     .log-head-text { min-width: 0; flex: 1; }
@@ -81,11 +105,51 @@ export function buildPlainTextLogHtml(profileName: string, filePath: string, tok
   <script src="${jsHref}"></script>
   <script>
     (function () {
+      var STEP = 48;
+      var MARK = "data-fvpn-scroll-buttons";
+      function bindRepeat(btn, action) {
+        var timer = 0, delayTimer = 0;
+        function stop() { clearInterval(timer); clearTimeout(delayTimer); timer = 0; delayTimer = 0; }
+        btn.addEventListener("pointerdown", function (ev) {
+          if (ev.button !== 0) return;
+          ev.preventDefault(); ev.stopPropagation();
+          action();
+          delayTimer = setTimeout(function () { timer = setInterval(action, 50); }, 400);
+        });
+        btn.addEventListener("pointerup", stop);
+        btn.addEventListener("pointerleave", stop);
+        btn.addEventListener("pointercancel", stop);
+        btn.addEventListener("click", function (ev) { ev.preventDefault(); ev.stopPropagation(); });
+      }
+      function mountButtons(scrollbar, axis, scrollEl) {
+        if (!scrollbar || scrollbar.hasAttribute(MARK)) return;
+        var track = scrollbar.querySelector(".os-scrollbar-track");
+        if (!track) return;
+        scrollbar.setAttribute(MARK, "");
+        var dec = document.createElement("button");
+        var inc = document.createElement("button");
+        dec.type = "button"; inc.type = "button";
+        dec.tabIndex = -1; inc.tabIndex = -1;
+        dec.className = "os-scrollbar-button os-scrollbar-button-" + (axis === "y" ? "up" : "left");
+        inc.className = "os-scrollbar-button os-scrollbar-button-" + (axis === "y" ? "down" : "right");
+        scrollbar.insertBefore(dec, track);
+        scrollbar.appendChild(inc);
+        bindRepeat(dec, function () { if (axis === "y") scrollEl.scrollTop -= STEP; else scrollEl.scrollLeft -= STEP; });
+        bindRepeat(inc, function () { if (axis === "y") scrollEl.scrollTop += STEP; else scrollEl.scrollLeft += STEP; });
+      }
+      function attachButtons(instance) {
+        var el = instance.elements();
+        mountButtons(el.scrollbarVertical.scrollbar, "y", el.scrollOffsetElement);
+        mountButtons(el.scrollbarHorizontal.scrollbar, "x", el.scrollOffsetElement);
+      }
       var host = document.getElementById("logScroll");
       if (!host || typeof OverlayScrollbarsGlobal === "undefined") return;
       OverlayScrollbarsGlobal.OverlayScrollbars(host, {
         overflow: { x: "scroll", y: "scroll" },
-        scrollbars: { theme: "os-theme-fvpn", autoHide: "leave", autoHideDelay: 600, clickScroll: true }
+        scrollbars: { theme: "os-theme-fvpn", visibility: "auto", autoHide: "never", clickScroll: true }
+      }, {
+        initialized: attachButtons,
+        updated: attachButtons
       });
     })();
   </script>
