@@ -10,7 +10,7 @@ import * as vpn from "./vpn-service.js";
 import * as imp from "./import-service.js";
 import { CHANGELOG_REV } from "./config.js";
 import { resolveOpenfortivpnExecutable } from "./openfortivpn-runner.js";
-import { buildPlainTextLogHtml } from "./log-window-html.js";
+import { buildPlainTextLogHtml, materializeOverlayScrollbarAssets } from "./log-window-html.js";
 import { fromAppRoot } from "./app-root.js";
 import { quitAfterScreenshots, runScreenshotCapture, screenshotCaptureRequested } from "./screenshot-capture.js";
 import type { VpnStartCredentials } from "../shared/types.js";
@@ -73,11 +73,28 @@ function isPathUnderVpnLogsDir(absPath: string): boolean {
 }
 
 function loadPlainTextLog(win: BrowserWindow, profileName: string, filePath: string): void {
-  const html = buildPlainTextLogHtml(profileName, filePath);
-  // file:// load so OverlayScrollbars assets from node_modules can be referenced (data: URLs cannot).
-  const out = path.join(app.getPath("temp"), `fortivpngui-log-${safeProfileSegment(profileName)}.html`);
-  fs.writeFileSync(out, html, "utf8");
-  void win.loadFile(out);
+  try {
+    // Copy OS assets beside the HTML: packaged builds cannot load `file://…/app.asar/…` from a /tmp page.
+    const dir = path.join(app.getPath("temp"), `fortivpngui-log-${safeProfileSegment(profileName)}`);
+    const assets = materializeOverlayScrollbarAssets(dir);
+    const html = buildPlainTextLogHtml(profileName, filePath, assets);
+    const out = path.join(dir, "index.html");
+    fs.writeFileSync(out, html, "utf8");
+    void win.loadFile(out);
+  } catch (e) {
+    console.error("[log-window] failed to build/load themed log HTML", e);
+    const body = fs.existsSync(filePath) ? fs.readFileSync(filePath, "utf8") : `(no log file)\n${filePath}\n`;
+    void win.loadURL(
+      "data:text/html;charset=utf-8," +
+        encodeURIComponent(
+          `<!doctype html><meta charset="utf-8"><title>VPN Log - ${profileName}</title>` +
+            `<pre style="margin:0;padding:14px;white-space:pre-wrap;word-break:break-word;font:12px/1.55 monospace">${body
+              .replace(/&/g, "&amp;")
+              .replace(/</g, "&lt;")
+              .replace(/>/g, "&gt;")}</pre>`
+        )
+    );
+  }
 }
 
 function reloadOpenLogWindows(): void {

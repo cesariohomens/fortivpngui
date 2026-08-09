@@ -1,6 +1,6 @@
 import fs from "fs";
+import path from "path";
 import { createRequire } from "node:module";
-import { pathToFileURL } from "node:url";
 import { nativeTheme } from "electron";
 import { readMainSettings } from "./settings-service.js";
 import { themeTokensForMode, resolveThemeMode, type ThemeTokens } from "../shared/theme-tokens.js";
@@ -21,16 +21,39 @@ function effectiveLogThemeTokens(): ThemeTokens {
   return themeTokensForMode(settings.theme_mode, nativeTheme.shouldUseDarkColors);
 }
 
-function overlayScrollbarAssetHrefs(): { cssHref: string; jsHref: string } {
-  const css = nodeRequire.resolve("overlayscrollbars/styles/overlayscrollbars.min.css");
-  const js = nodeRequire.resolve("overlayscrollbars/browser/overlayscrollbars.browser.es6.min.js");
-  return { cssHref: pathToFileURL(css).href, jsHref: pathToFileURL(js).href };
+const OS_CSS_NAME = "overlayscrollbars.min.css";
+const OS_JS_NAME = "overlayscrollbars.browser.es6.min.js";
+
+/**
+ * Copy OverlayScrollbars browser assets next to the log HTML.
+ * Packaged apps keep them inside `app.asar`; a `file://…/app.asar/…` `<script src>` from a `/tmp` page
+ * does not load, which left the log host with `body { overflow: hidden }` and no scroll viewport.
+ * Relative same-directory URLs work in both asar-dev and installed builds.
+ */
+export function materializeOverlayScrollbarAssets(destDir: string): { cssHref: string; jsHref: string } {
+  const pkgRoot = path.dirname(nodeRequire.resolve("overlayscrollbars/package.json"));
+  const cssSrc = path.join(pkgRoot, "styles", OS_CSS_NAME);
+  const jsSrc = path.join(pkgRoot, "browser", OS_JS_NAME);
+  if (!fs.existsSync(cssSrc) || !fs.existsSync(jsSrc)) {
+    throw new Error(`OverlayScrollbars assets missing under ${pkgRoot}`);
+  }
+  fs.mkdirSync(destDir, { recursive: true });
+  const cssDest = path.join(destDir, OS_CSS_NAME);
+  const jsDest = path.join(destDir, OS_JS_NAME);
+  fs.copyFileSync(cssSrc, cssDest);
+  fs.copyFileSync(jsSrc, jsDest);
+  return { cssHref: OS_CSS_NAME, jsHref: OS_JS_NAME };
 }
 
-export function buildPlainTextLogHtml(profileName: string, filePath: string, tokens?: ThemeTokens): string {
+export function buildPlainTextLogHtml(
+  profileName: string,
+  filePath: string,
+  assetHrefs: { cssHref: string; jsHref: string },
+  tokens?: ThemeTokens
+): string {
   const t = tokens ?? effectiveLogThemeTokens();
   const resolved = resolveThemeMode(readMainSettings().theme_mode, nativeTheme.shouldUseDarkColors);
-  const { cssHref, jsHref } = overlayScrollbarAssetHrefs();
+  const { cssHref, jsHref } = assetHrefs;
   const content = fs.existsSync(filePath)
     ? fs.readFileSync(filePath, "utf8")
     : `No log file exists yet for profile "${profileName}".\n\nExpected path:\n${filePath}\n`;
@@ -90,7 +113,9 @@ export function buildPlainTextLogHtml(profileName: string, filePath: string, tok
     #clearLog { flex-shrink: 0; margin-top: 2px; padding: 6px 12px; font-size: 12px; font-family: inherit; cursor: pointer; color: ${t.onSurface}; background: ${t.secondaryContainer}; border: 1px solid ${t.outlineVariant}; border-radius: 6px; }
     #clearLog:hover { filter: brightness(1.12); }
     #clearLog:disabled { opacity: 0.55; cursor: not-allowed; }
-    #logScroll { flex: 1; min-height: 0; }
+    /* Native overflow if OverlayScrollbars JS fails to load (e.g. asar file:// from /tmp). */
+    #logScroll { flex: 1; min-height: 0; overflow: auto; }
+    #logScroll.os-host { overflow: hidden; }
     pre { margin: 0; padding: 14px; white-space: pre-wrap; word-break: break-word; }
   </style>
 </head>
