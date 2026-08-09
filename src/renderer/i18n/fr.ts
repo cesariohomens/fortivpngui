@@ -184,7 +184,7 @@ export const fr: Messages = {
     v030DisconnectWarning:
       "Lorsque le tunnel tombe, une boîte de dialogue d'avertissement explique pourquoi (authentification, certificat, passerelle injoignable, délai, ppp, etc.) et affiche les dernières lignes du journal.",
     v030PersistentSeconds:
-      "L'intervalle persistent d'openfortivpn est désormais modifiable par profil en secondes (éditeur VPN → Commun), au lieu de 60s fixes et masquées.",
+      "L'intervalle persistent d'openfortivpn est désormais modifiable par profil en secondes (éditeur VPN → Options → Avancé), au lieu de 60s fixes et masquées.",
     v030Rpm: "Des paquets RPM sont générés en plus du .deb (npm run dist:rpm), pour Fedora, RHEL et openSUSE.",
     v021LogTheme:
       "Les fenêtres de journal VPN suivent le thème actif (sombre, clair ou système) et se mettent à jour lors d'un changement de thème.",

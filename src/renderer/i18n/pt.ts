@@ -184,7 +184,7 @@ export const pt: Messages = {
     v030DisconnectWarning:
       "Quando o túnel cai, um diálogo de aviso explica o motivo (autenticação, certificado, gateway inacessível, timeout, ppp, entre outros) e mostra as últimas linhas do registo.",
     v030PersistentSeconds:
-      "O intervalo persistent do openfortivpn passa a ser editável por perfil em segundos (editor VPN → Comum), em vez de 60s fixos e escondidos.",
+      "O intervalo persistent do openfortivpn passa a ser editável por perfil em segundos (editor VPN → Opções → Avançado), em vez de 60s fixos e escondidos.",
     v030Rpm: "Pacotes RPM passam a ser gerados além do .deb (npm run dist:rpm), para Fedora, RHEL e openSUSE.",
     v021LogTheme:
       "As janelas de log VPN seguem o tema activo (escuro, claro ou sistema) e actualizam-se quando o tema muda.",

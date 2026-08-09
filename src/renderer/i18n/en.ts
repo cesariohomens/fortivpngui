@@ -182,7 +182,7 @@ export const en = {
     v030DisconnectWarning:
       "When a tunnel drops, a warning dialog explains why (authentication, certificate, gateway unreachable, timeout, ppp, and more) and shows the last log lines.",
     v030PersistentSeconds:
-      "The openfortivpn persistent interval is now editable per profile in seconds (VPN editor → Common) instead of a hidden fixed 60s.",
+      "The openfortivpn persistent interval is now editable per profile in seconds (VPN editor → Options → Advanced) instead of a hidden fixed 60s.",
     v030Rpm: "RPM packages are built alongside .deb (npm run dist:rpm), for Fedora, RHEL, and openSUSE.",
     v021LogTheme:
       "VPN log windows follow the active theme (dark, light, or system) and refresh when the theme changes.",

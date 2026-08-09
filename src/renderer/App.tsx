@@ -1551,18 +1551,6 @@ export default function App() {
                     <TextField label={t("editor.vpnServer")} fullWidth value={profileDraft.gateway_host} onChange={(e) => setProfileDraft({ ...profileDraft, gateway_host: e.target.value })} />
                     <TextField label={t("editor.vpnPort")} type="number" value={profileDraft.gateway_port} onChange={(e) => setProfileDraft({ ...profileDraft, gateway_port: Number.parseInt(e.target.value, 10) || 10443 })} sx={{ maxWidth: 140 }} />
                   </Stack>
-                  <TextField
-                    label={t("editor.reconnectSeconds")}
-                    type="number"
-                    value={profileDraft.persistent === 0 ? "" : profileDraft.persistent}
-                    onChange={(e) => {
-                      const n = Number.parseInt(e.target.value, 10);
-                      setProfileDraft({ ...profileDraft, persistent: Number.isFinite(n) && n > 0 ? n : 0 });
-                    }}
-                    inputProps={{ min: 0, step: 1 }}
-                    placeholder="0"
-                    sx={{ maxWidth: 320 }}
-                  />
                 </Stack>
               </Paper>
               <Paper sx={sectionSx(colors)}>
@@ -1632,6 +1620,18 @@ export default function App() {
                   <FormControlLabel control={<Checkbox checked={profileDraft.half_internet_routers} onChange={(_, c) => setProfileDraft({ ...profileDraft, half_internet_routers: c })} />} label={t("editor.halfInternetRoutes")} />
                   <FormControlLabel control={<Checkbox checked={profileDraft.set_dns} onChange={(_, c) => setProfileDraft({ ...profileDraft, set_dns: c })} />} label={t("editor.setDns")} />
                   <FormControlLabel control={<Checkbox checked={profileDraft.debug} onChange={(_, c) => setProfileDraft({ ...profileDraft, debug: c })} />} label={t("settings.debug")} />
+                  <TextField
+                    fullWidth
+                    label={t("editor.reconnectSeconds")}
+                    type="number"
+                    value={profileDraft.persistent === 0 ? "" : profileDraft.persistent}
+                    onChange={(e) => {
+                      const n = Number.parseInt(e.target.value, 10);
+                      setProfileDraft({ ...profileDraft, persistent: Number.isFinite(n) && n > 0 ? n : 0 });
+                    }}
+                    inputProps={{ min: 0, step: 1 }}
+                    placeholder="0"
+                  />
                   <TextField label={t("editor.realm")} value={profileDraft.realm} onChange={(e) => setProfileDraft({ ...profileDraft, realm: e.target.value })} />
                   <TextField
                     label={t("editor.otpPrompt")}
