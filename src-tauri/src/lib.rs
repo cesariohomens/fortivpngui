@@ -11,6 +11,7 @@ mod keychain;
 mod log_window;
 mod openfortivpn_caps;
 mod openfortivpn_runner;
+mod otp_detect;
 mod profiles;
 mod settings;
 mod tray;

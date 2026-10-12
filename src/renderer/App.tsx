@@ -268,6 +268,8 @@ export default function App() {
   const fortigateLastConnectHadOtp = useRef<Record<string, boolean>>({});
   /** After the user dismisses the Fortigate OTP dialog, ignore older log lines so the effect does not reopen from stale "Could not authenticate" entries (different `t` → different key). */
   const fortiOtpChallengeDismissedAt = useRef<Record<string, number>>({});
+  /** Set when a token is submitted / a fresh one requested; auth-failure lines older than this belong to a previous attempt. */
+  const otpAuthWatchSince = useRef(0);
   const connectProfileRequest = useRef<(name: string) => void>(() => {});
   const profilesRef = useRef<VpnProfile[]>([]);
   const loginOpenRef = useRef(false);
@@ -466,6 +468,7 @@ export default function App() {
       const target = loginTargetRef.current;
 
       if (maybeAuth && target === e.name && phase === "awaiting_auth") {
+        if (e.t <= otpAuthWatchSince.current) continue;
         lastOtpChallengeLogKey.current = key;
         setLoginOtpPhase("wrong_otp");
         setLoginOpen(true);
@@ -838,6 +841,7 @@ export default function App() {
         return;
       }
       fortigateLastConnectHadOtp.current[loginTarget] = true;
+      otpAuthWatchSince.current = Date.now();
       setLoginOtpPhase("awaiting_auth");
       setLoginOpen(false);
       setLoginOtp("");
@@ -863,6 +867,7 @@ export default function App() {
       notify((e as Error).message);
       return;
     }
+    otpAuthWatchSince.current = Date.now();
     setLoginOtpPhase("awaiting_auth");
     setLoginOpen(false);
     setLoginOtp("");
@@ -897,9 +902,27 @@ export default function App() {
     const target = loginTarget;
     if (!target) return;
     await window.fvpn.resetOtpPrompt(target);
-    lastOtpChallengeLogKey.current = "";
     fortigateLastConnectHadOtp.current[target] = false;
     setLoginOtp("");
+    const state = await window.fvpn.vpnStatus(target);
+    if (loginKind === "challenge" && state === "disconnected") {
+      /* openfortivpn exits after a rejected token, so there is no stdin to write to. Reconnect without a token: the gateway issues a fresh code (e.g. by email) and the stdin prompt event reopens this dialog. */
+      otpAuthWatchSince.current = Date.now();
+      setLoginOtpPhase("awaiting_auth");
+      setLoginOtpViaStdin(true);
+      setLoginOpen(false);
+      try {
+        await window.fvpn.startVpn(target);
+      } catch (e) {
+        notify((e as Error).message);
+        setLoginOtpPhase("idle");
+        setLoginKind(null);
+        setLoginTarget(null);
+        setLoginOtpViaStdin(false);
+      }
+      return;
+    }
+    lastOtpChallengeLogKey.current = "";
     setLoginOtpPhase("prompt");
     setLoginOpen(true);
   };

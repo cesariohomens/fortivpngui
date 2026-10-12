@@ -3,7 +3,7 @@
 
 use std::collections::{HashMap, HashSet};
 use std::fs::{self, OpenOptions};
-use std::io::{BufRead, BufReader, Write};
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::{Arc, Mutex};
@@ -13,6 +13,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use crate::openfortivpn_caps::{
     detect_openfortivpn_version, supports_cli_option, supports_config_key,
 };
+use crate::otp_detect::otp_log_line_requests_token;
 use crate::settings::read_main_settings;
 use crate::types::VpnProfile;
 
@@ -431,41 +432,137 @@ fn tunnel_up_line(line: &str) -> bool {
     false
 }
 
-fn spawn_line_reader<R: std::io::Read + Send + 'static>(
+/// Emit one log line and optionally fire the tunnel-up callback.
+fn emit_log_line(
+    profile_name: &str,
+    stream: &'static str,
+    text: &str,
+    on_log: &LogCallback,
+    on_tunnel_up: &Option<TunnelUpCallback>,
+) {
+    if text.is_empty() {
+        return;
+    }
+    on_log(OpenfortivpnLog {
+        profile_name: profile_name.to_string(),
+        line: text.to_string(),
+        stream,
+    });
+    if tunnel_up_line(text) {
+        if let Some(ref cb) = on_tunnel_up {
+            cb();
+        }
+    }
+}
+
+/// Upper bound for an unterminated line before it is flushed as-is.
+const MAX_PENDING_LINE_BYTES: usize = 64 * 1024;
+
+/// Emit a completed line, dropping the part that was already surfaced as an OTP prompt fragment.
+///
+/// openfortivpn's `read_password()` prints the prompt, blocks on stdin, then prints `\n` — so
+/// the terminating line is either exactly the fragment or the fragment followed by whatever was
+/// written next (e.g. `...token:INFO: Authenticated.`). Either way, only the remainder is new.
+fn emit_completed_line(
+    raw: &[u8],
+    otp_fragment_emitted: &mut Option<String>,
+    profile_name: &str,
+    stream: &'static str,
+    on_log: &LogCallback,
+    on_tunnel_up: &Option<TunnelUpCallback>,
+) {
+    let text = String::from_utf8_lossy(raw);
+    let mut rest = text.trim();
+    if let Some(frag) = otp_fragment_emitted.take() {
+        if let Some(r) = rest.strip_prefix(frag.as_str()) {
+            rest = r.trim();
+        }
+    }
+    if rest.is_empty() {
+        return;
+    }
+    emit_log_line(profile_name, stream, rest, on_log, on_tunnel_up);
+}
+
+/// Read stdout/stderr in chunks (not line-buffered).
+///
+/// openfortivpn prints OTP prompts like `Two-factor authentication token:` **without** a
+/// trailing newline while it waits on stdin (`printf` + `fflush` in `userinput.c`). A
+/// `read_line` loop never surfaces that text until the process exits — so the UI only opened
+/// the OTP dialog after Stop. Match the old Electron runner: treat an unterminated OTP prompt
+/// fragment as a log line as soon as it appears, then skip it again once the line completes.
+fn spawn_line_reader<R: Read + Send + 'static>(
     reader: R,
     profile_name: String,
     stream: &'static str,
     on_log: LogCallback,
     on_tunnel_up: Option<TunnelUpCallback>,
-) {
+    otp_prompt: Option<String>,
+) -> thread::JoinHandle<()> {
     thread::spawn(move || {
-        let mut buf = BufReader::new(reader);
-        let mut line = String::new();
+        let mut reader = reader;
+        let mut pending: Vec<u8> = Vec::new();
+        let mut chunk = [0u8; 4096];
+        let mut otp_fragment_emitted: Option<String> = None;
+        let custom = otp_prompt.as_deref();
+
         loop {
-            line.clear();
-            match buf.read_line(&mut line) {
-                Ok(0) => break,
-                Ok(_) => {
-                    let trimmed = line.trim_end_matches(['\r', '\n']);
-                    if trimmed.is_empty() {
+            match reader.read(&mut chunk) {
+                Ok(0) => {
+                    if !pending.is_empty() {
+                        emit_completed_line(
+                            &pending,
+                            &mut otp_fragment_emitted,
+                            &profile_name,
+                            stream,
+                            &on_log,
+                            &on_tunnel_up,
+                        );
+                    }
+                    break;
+                }
+                Ok(n) => {
+                    pending.extend_from_slice(&chunk[..n]);
+                    while let Some(pos) = pending.iter().position(|&b| b == b'\n') {
+                        let line_bytes: Vec<u8> = pending.drain(..=pos).collect();
+                        emit_completed_line(
+                            &line_bytes,
+                            &mut otp_fragment_emitted,
+                            &profile_name,
+                            stream,
+                            &on_log,
+                            &on_tunnel_up,
+                        );
+                    }
+                    if pending.is_empty() {
                         continue;
                     }
-                    let text = trimmed.to_string();
-                    on_log(OpenfortivpnLog {
-                        profile_name: profile_name.clone(),
-                        line: text.clone(),
-                        stream,
-                    });
-                    if tunnel_up_line(&text) {
-                        if let Some(ref cb) = on_tunnel_up {
-                            cb();
+                    if pending.len() > MAX_PENDING_LINE_BYTES {
+                        let bytes = std::mem::take(&mut pending);
+                        emit_completed_line(
+                            &bytes,
+                            &mut otp_fragment_emitted,
+                            &profile_name,
+                            stream,
+                            &on_log,
+                            &on_tunnel_up,
+                        );
+                        continue;
+                    }
+                    // Unterminated buffer: surface an OTP prompt once; wait for `\n` otherwise.
+                    if otp_fragment_emitted.is_none() {
+                        let text = String::from_utf8_lossy(&pending);
+                        let trimmed = text.trim();
+                        if !trimmed.is_empty() && otp_log_line_requests_token(trimmed, custom) {
+                            otp_fragment_emitted = Some(trimmed.to_string());
+                            emit_log_line(&profile_name, stream, trimmed, &on_log, &on_tunnel_up);
                         }
                     }
                 }
                 Err(_) => break,
             }
         }
-    });
+    })
 }
 
 fn finish_wait(
@@ -658,11 +755,26 @@ pub fn start_openfortivpn(
         );
     });
 
+    let otp_prompt = {
+        let t = profile.otp_prompt.trim();
+        if t.is_empty() {
+            None
+        } else {
+            Some(t.to_string())
+        }
+    };
     if let Some(out) = stdout {
-        spawn_line_reader(out, name.clone(), "stdout", on_log.clone(), on_tunnel_up.clone());
+        spawn_line_reader(
+            out,
+            name.clone(),
+            "stdout",
+            on_log.clone(),
+            on_tunnel_up.clone(),
+            otp_prompt.clone(),
+        );
     }
     if let Some(err) = stderr {
-        spawn_line_reader(err, name.clone(), "stderr", on_log.clone(), on_tunnel_up);
+        spawn_line_reader(err, name.clone(), "stderr", on_log, on_tunnel_up, otp_prompt);
     }
 
     finish_wait(name, pid, config_path, child, on_exit);
@@ -671,6 +783,116 @@ pub fn start_openfortivpn(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Reader that yields the given chunks one `read()` at a time, then EOF.
+    struct ChunkReader {
+        chunks: std::collections::VecDeque<Vec<u8>>,
+    }
+
+    impl ChunkReader {
+        fn new(chunks: &[&str]) -> Self {
+            Self {
+                chunks: chunks.iter().map(|c| c.as_bytes().to_vec()).collect(),
+            }
+        }
+    }
+
+    impl Read for ChunkReader {
+        fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+            let Some(chunk) = self.chunks.pop_front() else {
+                return Ok(0);
+            };
+            let n = chunk.len().min(buf.len());
+            buf[..n].copy_from_slice(&chunk[..n]);
+            if n < chunk.len() {
+                self.chunks.push_front(chunk[n..].to_vec());
+            }
+            Ok(n)
+        }
+    }
+
+    fn collect_lines(chunks: &[&str], otp_prompt: Option<&str>) -> Vec<String> {
+        let out: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
+        let sink = out.clone();
+        let on_log: LogCallback = Arc::new(move |ev: OpenfortivpnLog| {
+            sink.lock().unwrap().push(ev.line);
+        });
+        spawn_line_reader(
+            ChunkReader::new(chunks),
+            "p".into(),
+            "stdout",
+            on_log,
+            None,
+            otp_prompt.map(str::to_string),
+        )
+        .join()
+        .unwrap();
+        let v = out.lock().unwrap().clone();
+        v
+    }
+
+    #[test]
+    fn reader_emits_complete_lines() {
+        let lines = collect_lines(&["INFO: Connected to gateway.\nINFO: Auth", "enticated.\n"], None);
+        assert_eq!(lines, vec!["INFO: Connected to gateway.", "INFO: Authenticated."]);
+    }
+
+    #[test]
+    fn reader_surfaces_unterminated_otp_prompt_once() {
+        let lines = collect_lines(
+            &[
+                "INFO: Connected to gateway.\n",
+                "Two-factor authentication token:",
+                "\n",
+                "INFO: Authenticated.\n",
+            ],
+            None,
+        );
+        assert_eq!(
+            lines,
+            vec![
+                "INFO: Connected to gateway.",
+                "Two-factor authentication token:",
+                "INFO: Authenticated.",
+            ]
+        );
+    }
+
+    #[test]
+    fn reader_strips_prompt_prefix_when_output_is_glued() {
+        let lines = collect_lines(
+            &["Two-factor authentication token:", "INFO: Authenticated.\n"],
+            None,
+        );
+        assert_eq!(
+            lines,
+            vec!["Two-factor authentication token:", "INFO: Authenticated."]
+        );
+    }
+
+    #[test]
+    fn reader_does_not_reemit_prompt_on_more_partial_bytes() {
+        let lines = collect_lines(
+            &["Two-factor authentication token:", "INFO: Auth", "enticated.\n"],
+            None,
+        );
+        assert_eq!(
+            lines,
+            vec!["Two-factor authentication token:", "INFO: Authenticated."]
+        );
+    }
+
+    #[test]
+    fn reader_flushes_unterminated_tail_at_eof() {
+        let lines = collect_lines(&["INFO: Connected to gateway.\nERROR: bye"], None);
+        assert_eq!(lines, vec!["INFO: Connected to gateway.", "ERROR: bye"]);
+    }
+
+    #[test]
+    fn reader_honours_custom_otp_prompt() {
+        let lines = collect_lines(&["Enter code 5"], Some("Enter code"));
+        assert_eq!(lines, vec!["Enter code 5"]);
+    }
 
     #[test]
     fn parse_digests_dedup_and_prefix() {
