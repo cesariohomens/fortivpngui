@@ -119,12 +119,13 @@ Paths are created on first run.
 ## Linux packages (.deb and .rpm)
 
 ```bash
-npm run dist       # .deb + .rpm
-npm run dist:deb   # .deb only
-npm run dist:rpm   # .rpm only
+npm run dist           # .deb + .rpm + AppImage
+npm run dist:deb       # .deb only
+npm run dist:rpm       # .rpm only
+npm run dist:appimage  # AppImage only
 ```
 
-Artifacts land under `src-tauri/target/release/bundle/`.
+Artifacts land under `src-tauri/target/release/bundle/` (`deb/`, `rpm/`, `appimage/`).
 
 ### Sudo (FortiGate)
 
