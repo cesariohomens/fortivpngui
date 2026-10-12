@@ -1,0 +1,45 @@
+[package]
+name = "fortivpngui"
+version = "0.4.0"
+description = "Desktop VPN GUI for FortiGate (openfortivpn) — Tauri + Material UI"
+authors = ["Cesário Mil-Homens <cesario@cesariogarcia.com>"]
+license = "MIT"
+edition = "2021"
+rust-version = "1.77"
+
+[lib]
+name = "fortivpngui_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon", "image-png"] }
+tauri-plugin-single-instance = "2"
+tauri-plugin-shell = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-notification = "2"
+tauri-plugin-opener = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+aes = "0.8"
+cbc = { version = "0.1", features = ["alloc"] }
+base64 = "0.22"
+rust-ini = "0.21"
+keyring = { version = "3", features = ["linux-native", "sync-secret-service"] }
+regex = "1"
+rfd = "0.15"
+notify-rust = "4"
+sys-locale = "0.3"
+url = "2"
+open = "5"
+libc = "0.2"
+dirs = "6"
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true

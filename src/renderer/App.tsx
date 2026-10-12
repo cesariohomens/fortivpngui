@@ -2099,7 +2099,7 @@ export default function App() {
                     <li>Theme preference saved in <code>~/.fortivpngui/main.conf</code> (<code>gui/theme_mode</code>).</li>
                     <li>FortiGate OTP: one prompt per reconnect cycle; invalid OTP offers disconnect or request a new code (no prompt loop).</li>
                     <li>
-                      .deb install/upgrade: postinst stops running instances and removes <code>~/.config/fortivpngui</code> (Electron cache) so the new
+                      .deb install/upgrade: postinst stops running instances; WebKit/Tauri caches under the app data dir may be cleared so the new
                       package loads without a reboot; VPN data in <code>~/.fortivpngui/</code> is kept.
                     </li>
                   </Box>
@@ -2110,7 +2110,7 @@ export default function App() {
               <Box>
                 <Typography fontWeight={700}>0.1.0</Typography>
                 <Typography variant="body2" color={colors.muted} sx={{ mt: 0.5 }}>
-                  Electron shell, OpenFortiGUI-compatible profiles/groups, Fortigate openfortivpn runner.
+                  Tauri/Rust shell, OpenFortiGUI-compatible profiles/groups, Fortigate openfortivpn runner.
                 </Typography>
               </Box>
             </ListItemButton>
@@ -2420,7 +2420,7 @@ export default function App() {
               ))}
             </Box>
             <Stack direction="row" flexWrap="wrap" justifyContent="center" gap={1} pt={0.5}>
-              {["Electron", "React", "Material UI"].map((tag) => (
+              {["Tauri", "Rust", "React", "Material UI"].map((tag) => (
                 <Chip
                   key={tag}
                   label={tag}

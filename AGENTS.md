@@ -1,30 +1,30 @@
 # FortiVPN GUI — agent guide
 
-Desktop VPN client for **FortiGate** (`openfortivpn`). **Electron** main process + **React 19** / **Material UI** renderer. Config under `~/.fortivpngui/` (OpenFortiGUI-compatible INI).
+Desktop VPN client for **FortiGate** (`openfortivpn`). **Tauri 2** (Rust) backend + **React 19** / **Material UI** renderer. Config under `~/.fortivpngui/` (OpenFortiGUI-compatible INI).
 
 ## Commands
 
 | Task | Command |
 |------|---------|
 | Install | `npm ci` |
-| Dev (HMR) | `npm run electron:dev` |
-| Build all | `npm run build` |
-| Run packaged build | `npm start` |
-| `.deb` (electron-builder) | `npm run dist` |
+| Dev (HMR) | `npm run tauri:dev` |
+| Build renderer | `npm run build` |
+| Build app (deb/rpm) | `npm run dist` |
+| Debug binary | `cargo tauri build --debug` |
 
-Main entry after build: `dist-electron/electron/main.js` (see `package.json` → `main`).
+Main binary after build: `src-tauri/target/release/fortivpngui` (or `debug/`).
 
 ## Layout
 
 | Path | Role |
 |------|------|
-| `electron/` | Main process: IPC, tray, VPN runners, settings, import |
-| `src/renderer/` | React UI (`App.tsx`), i18n, theme |
+| `src-tauri/` | Rust/Tauri main process: IPC commands, tray, VPN runners, settings, import |
+| `src/renderer/` | React UI (`App.tsx`), `fvpn-bridge.ts` (Tauri ↔ `window.fvpn`), i18n, theme |
 | `shared/` | Types, constants, theme tokens (shared at build time) |
-| `resources/` | Sudoers template, deb maintainer scripts, icons |
+| `resources/` | Sudoers template, deb/rpm maintainer scripts, icons |
 | `docs/` | Release notes, screenshots |
 
-Bump **`CHANGELOG_REV`** in both `shared/constants.ts` and `electron/config.ts` when in-app changelog content changes.
+Bump **`CHANGELOG_REV`** in both `shared/constants.ts` and `src-tauri/src/config.rs` when in-app changelog content changes.
 
 ## Cursor rules (project)
 
@@ -78,9 +78,10 @@ Installed Cursor skills on this machine live in **`~/.cursor/skills-cursor/`**. 
 
 ## Conventions
 
-- Minimal diffs; match existing style in `electron/` and `src/renderer/`.
+- Minimal diffs; match existing style in `src-tauri/` and `src/renderer/`.
 - i18n: strings in `src/renderer/i18n/`; language setting in `main.conf` → `gui/language`.
-- Theme tokens: `shared/theme-tokens.ts` (used by renderer and log windows in main process).
+- Theme tokens: `shared/theme-tokens.ts` (used by renderer and log windows).
 - FortiGate VPN runs via `sudo openfortivpn`; packaged `.deb` may install `/etc/sudoers.d/fortivpngui`.
+- Frontend talks to Rust only through `window.fvpn` (`src/renderer/fvpn-bridge.ts` → Tauri `invoke` / events).
 
 For human-oriented docs, see [README.md](README.md).

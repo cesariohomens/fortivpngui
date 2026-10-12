@@ -5,3 +5,11 @@ release/
 .DS_Store
 .env
 .env.*
+
+# Tauri
+src-tauri/target/
+
+
+# Mobile icon packs unused for Linux desktop
+src-tauri/icons/android/
+src-tauri/icons/ios/

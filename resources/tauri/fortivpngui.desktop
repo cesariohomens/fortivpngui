@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=FortiVPN GUI
+Comment=Desktop VPN client for FortiGate (openfortivpn)
+Exec=fortivpngui
+Icon=fortivpngui
+Terminal=false
+Categories=Network;
+StartupWMClass=fortivpngui

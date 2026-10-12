@@ -3,31 +3,29 @@
 </p>
 
 <p align="center">
-  <a href="https://www.electronjs.org/"><img src="https://img.shields.io/badge/Electron-47848F?style=flat-square&logo=electron&logoColor=white" alt="Electron" /></a>
+  <a href="https://tauri.app/"><img src="https://img.shields.io/badge/Tauri-24C8DB?style=flat-square&logo=tauri&logoColor=white" alt="Tauri" /></a>
+  <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/Rust-000000?style=flat-square&logo=rust&logoColor=white" alt="Rust" /></a>
   <a href="https://react.dev/"><img src="https://img.shields.io/badge/React-20232A?style=flat-square&logo=react&logoColor=61DAFB" alt="React" /></a>
   <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript" /></a>
   <a href="https://vitejs.dev/"><img src="https://img.shields.io/badge/Vite-646CFF?style=flat-square&logo=vite&logoColor=white" alt="Vite" /></a>
   <a href="https://mui.com/"><img src="https://img.shields.io/badge/MUI-007FFF?style=flat-square&logo=mui&logoColor=white" alt="MUI" /></a>
-  <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/Node.js-339933?style=flat-square&logo=nodedotjs&logoColor=white" alt="Node.js" /></a>
   <a href="https://github.com/adrienverge/openfortivpn"><img src="https://img.shields.io/badge/openfortivpn-system-2ea44f?style=flat-square" alt="openfortivpn" /></a>
   <img src="https://img.shields.io/badge/Linux-deb-FCC624?style=flat-square&logo=linux&logoColor=black" alt="Linux .deb" />
   <img src="https://img.shields.io/badge/Linux-rpm-FCC624?style=flat-square&logo=linux&logoColor=black" alt="Linux .rpm" />
   <img src="https://img.shields.io/badge/version-0.4.0-0A7EA4?style=flat-square" alt="0.4.0" />
-  <a href="https://www.npmjs.com/package/ini"><img src="https://img.shields.io/badge/ini-config-EA6A47?style=flat-square&logo=npm&logoColor=white" alt="ini" /></a>
-  <a href="https://www.npmjs.com/package/keytar"><img src="https://img.shields.io/badge/keytar-libsecret-808080?style=flat-square&logo=npm&logoColor=white" alt="keytar" /></a>
 </p>
 
 # FortiVPN GUI
 
-Desktop VPN client for **FortiGate** (system [`openfortivpn`](https://github.com/adrienverge/openfortivpn)). The UI is **Electron**, **React 19**, and **Material UI**. Profiles and groups use an **INI-style layout** under `~/.fortivpngui/`, compatible with **OpenFortiGUI** for import and day-to-day use.
+Desktop VPN client for **FortiGate** (system [`openfortivpn`](https://github.com/adrienverge/openfortivpn)). The UI is **Tauri 2** (Rust), **React 19**, and **Material UI**. Profiles and groups use an **INI-style layout** under `~/.fortivpngui/`, compatible with **OpenFortiGUI** for import and day-to-day use.
 
 Current release: **[0.4.0](docs/releases/v0.4.0.md)** — see also [0.3.0](docs/releases/v0.3.0.md), [0.2.1](docs/releases/v0.2.1.md), and [0.2.0](docs/releases/v0.2.0.md).
 
-**Licence:** this repository is [MIT](LICENSE). Runtime dependencies (Electron, React, MUI, `openfortivpn`, etc.) have their own licences.
+**Licence:** this repository is [MIT](LICENSE). Runtime dependencies (Tauri/WebKit, React, MUI, `openfortivpn`, etc.) have their own licences.
 
 ## Screenshots
 
-PNG files live in [`docs/images/`](docs/images/). Regenerate with `npm run screenshots` (English UI, isolated config, **dark** and **light** themes).
+PNG files live in [`docs/images/`](docs/images/).
 
 ### Dark
 
@@ -47,23 +45,21 @@ PNG files live in [`docs/images/`](docs/images/). Regenerate with `npm run scree
 | ![](docs/images/light-image05.png) | ![](docs/images/light-image06.png) |
 | ![](docs/images/light-image07.png) |  |
 
-
 ---
 
 ## Features
 
 - **FortiGate only**: `sudo openfortivpn` with generated configs; options the installed binary cannot parse are skipped and logged (version / `--help` gating).
-- **Full profile editor** for the useful `openfortivpn` surface: routes/DNS, reconnect interval (**Options → Advanced**), PPPD, SSL/TLS (cipher list, min TLS, seclevel-1), certificates (including PEM pass phrase), gateway digests, SAML login (browser opens automatically), SVPNCOOKIE on stdin, pinentry, bind-to-interface (`--ifname`), resolvconf, host check / virtual desktop / SNI / User-Agent.
+- **Full profile editor** for the useful `openfortivpn` surface: routes/DNS, reconnect interval (**Options → Advanced**), PPPD, SSL/TLS, certificates, gateway digests, SAML login, SVPNCOOKIE on stdin, pinentry, bind-to-interface, resolvconf, host check / virtual desktop / SNI / User-Agent.
 - **OTP on stdin**, FortiToken Mobile push opt-out, optional gateway certificate prompt and `trusted-cert` handling, traffic stats, per-profile log files.
-- **VPN groups**: connect/disconnect member profiles together; status derived from members.
-- **No silent auto-reconnect**: a dropped tunnel raises a **warning dialog** with the detected cause and the last log lines; reconnecting is the user's call unless a **reconnect interval** (`persistent`, seconds) is set on the profile.
-- **i18n**: English, Portuguese, Spanish, French, Italian, German; **Settings → GUI → Language** (`gui/language` in `main.conf`).
-- **Theme**: dark / light / system (`gui/theme_mode`); **OverlayScrollbars** themed for both modes (with axis arrows).
-- **Tray** on Linux: quick connect/disconnect, open main window, Settings tab, quit (full quit stops VPN helpers and cleans temp files).
-- **Main window close** hides to tray; **orphan** temp configs under `TMPDIR` / `fortivpngui` are swept without stopping active tunnels.
-- **Settings**: paths, AES key/IV, password manager (**keytar** / libsecret), notifications, search, theme/language, import/merge from OpenFortiGUI.
+- **VPN groups**: connect/disconnect member profiles together.
+- **No silent auto-reconnect**: a dropped tunnel raises a **warning dialog** with the detected cause; reconnecting is the user's call unless a **reconnect interval** (`persistent`) is set on the profile.
+- **i18n**: English, Portuguese, Spanish, French, Italian, German.
+- **Theme**: dark / light / system.
+- **Tray** on Linux: quick connect/disconnect, open main window, Settings, quit.
+- **Main window close** hides to tray; orphan temp configs under `TMPDIR/fortivpngui` are swept without stopping active tunnels.
+- **Settings**: paths, AES key/IV, password manager (libsecret / keyring), notifications, search, theme/language, import/merge from OpenFortiGUI.
 - **Packages**: `.deb` and `.rpm` via `npm run dist`.
-- **External links** (`http`, `https`, `mailto`) open in the **system default browser** (main window navigation is guarded in the Electron main process).
 
 ---
 
@@ -71,11 +67,10 @@ PNG files live in [`docs/images/`](docs/images/). Regenerate with `npm run scree
 
 | Context | Needs |
 |--------|--------|
-| **Development** | Node.js **20+**, npm |
+| **Development** | Node.js **20+**, npm, **Rust** (stable), system libs for Tauri (webkit2gtk-4.1, gtk3, librsvg, openssl) |
 | **Runtime (Linux)** | `openfortivpn`, `ppp`, `sudo` |
 | **.deb install** | Same as runtime; **`libsecret-1-0`** for optional OS keychain storage |
 | **.rpm install** | Same as runtime; **`libsecret`** for optional OS keychain storage |
-| **Building .rpm** | `rpmbuild` (`rpm-build` on Fedora/RHEL, `rpm` on Debian/Ubuntu) |
 
 ---
 
@@ -83,15 +78,12 @@ PNG files live in [`docs/images/`](docs/images/). Regenerate with `npm run scree
 
 | Path | Role |
 |------|------|
-| `electron/` | Main process: window, tray, IPC, VPN runner (`openfortivpn-runner`), capabilities gating, profiles/groups/settings/import, preload bridge |
-| `src/renderer/` | React UI (`App.tsx`), i18n, themed scrollbars, Vite entry |
-| `shared/` | Types and constants shared at build time (`constants.ts` imports `package.json` for version and metadata) |
+| `src-tauri/` | Rust/Tauri backend: IPC commands, tray, VPN runner, profiles/groups/settings/import |
+| `src/renderer/` | React UI (`App.tsx`), `fvpn-bridge.ts`, i18n, Vite entry |
+| `shared/` | Types and constants shared at build time |
 | `resources/` | Packaged assets: `sudo/` template, `deb/` and `rpm/` maintainer scripts, icons |
-| `docs/releases/` | Human-readable release notes (`v0.4.0.md`, …) |
-| `docs/images/` | README screenshots (`dark-imageXX.png` / `light-imageXX.png`) |
-| `scripts/` | `capture-screenshots.mjs`, `clean-caches.mjs` |
-| `dist/` / `dist-electron/` | Build output (ignored by git); `npm run build` fills these |
-| `release/` | Packaged `.deb` / `.rpm` (ignored by git) |
+| `docs/releases/` | Human-readable release notes |
+| `docs/images/` | README screenshots |
 
 ---
 
@@ -99,25 +91,15 @@ PNG files live in [`docs/images/`](docs/images/). Regenerate with `npm run scree
 
 ```bash
 npm ci
-npm run build:electron   # compile main + preload TypeScript
-npm run electron:dev     # Vite :5173 + Electron with hot reload
-npm run clean            # wipe dist/, Vite caches, and Electron Chromium caches under ~/.config/fortivpngui
-npm run screenshots      # English UI PNGs for docs/images (dark + light)
+npm run tauri:dev     # Vite :5173 + Tauri with hot reload
+npm run build         # build React renderer only
+npm start             # debug build + run binary
 ```
-
-`npm start` and `npm run electron:dev` use **`--no-sandbox`** so Electron runs when `chrome-sandbox` is not setuid root (common after `npm install`). If you see *“The SUID sandbox helper binary was found, but is not configured correctly”*, either keep `--no-sandbox` or fix sandbox permissions once:
-
-```bash
-sudo chown root:root node_modules/electron/dist/chrome-sandbox
-sudo chmod 4755 node_modules/electron/dist/chrome-sandbox
-```
-
-Debug the blank window: `FORTIVPN_OPEN_DEVTOOLS=1 npm start` and inspect the Console.
 
 Production-like local run:
 
 ```bash
-npm start    # npm run clean && npm run build && electron --no-sandbox .
+npm run tauri:build   # release binary + deb/rpm under src-tauri/target/release/
 ```
 
 ---
@@ -125,12 +107,12 @@ npm start    # npm run clean && npm run build && electron --no-sandbox .
 ## Configuration and data
 
 - **Base directory:** `~/.fortivpngui/`
-- **Main settings:** `~/.fortivpngui/main.conf` (INI: `main`, `paths`, `gui` — includes `gui/theme_mode` and `gui/language`)
-- **Profiles:** local `~/.fortivpngui/vpnprofiles/`, global `/etc/fortivpngui/vpnprofiles/` (paths configurable in Settings)
+- **Main settings:** `~/.fortivpngui/main.conf` (INI: `main`, `paths`, `gui`)
+- **Profiles:** local `~/.fortivpngui/vpnprofiles/`, global `/etc/fortivpngui/vpnprofiles/`
 - **Groups:** `~/.fortivpngui/vpngroups/`
-- **Logs directory:** configurable; VPN process logs under the configured tree
+- **Logs:** configurable; VPN process logs under the configured tree
 
-Paths are created on first run (`initMainConfig` in the Electron main process).
+Paths are created on first run.
 
 ---
 
@@ -139,67 +121,42 @@ Paths are created on first run (`initMainConfig` in the Electron main process).
 ```bash
 npm run dist       # .deb + .rpm
 npm run dist:deb   # .deb only
-npm run dist:rpm   # .rpm only (host needs rpmbuild / rpm-build)
+npm run dist:rpm   # .rpm only
 ```
 
-Artifacts land in `release/` (large; distribute via **GitHub Releases** or similar, not necessarily inside git). For **0.4.0**:
-
-| Format | Artifact | Install |
-|--------|----------|---------|
-| **deb** | `fortivpngui_0.4.0_amd64.deb` | `sudo apt install ./fortivpngui_0.4.0_amd64.deb` |
-| **rpm** | `fortivpngui-0.4.0.x86_64.rpm` | `sudo dnf install ./fortivpngui-0.4.0.x86_64.rpm` (or `zypper install` on openSUSE) |
-
-- **Depends (deb):** `openfortivpn`, `ppp`, `sudo`, `libsecret-1-0` (`package.json` → `build.deb.depends`).
-- **Depends (rpm):** `openfortivpn`, `ppp`, `sudo`, `libsecret` (`package.json` → `build.rpm.depends`).
-- **`postinst`** (`resources/deb/postinst.sh`, `resources/rpm/postinst.sh`): installs `/etc/sudoers.d/fortivpngui` from the unpacked template (`asarUnpack` for `resources/sudo/**` so the file exists on disk under `/opt/fortivpngui/...`), validates with `visudo -c`, adjusts `chrome-sandbox` setuid when present, refreshes desktop/icon caches. The RPM variant also runs `restorecon` for SELinux systems.
-- **`postrm`** (`resources/deb/postrm.sh`, `resources/rpm/postrm.sh`): deletes `/etc/sudoers.d/fortivpngui` on real removal only — deb checks `remove`/`purge`, rpm checks `$1 = 0` — never on **upgrade**.
-
-Maintainer scripts are kept as two sets because Debian and RPM pass different arguments to the hooks; keep them in sync when changing install behaviour.
-
-`npm install` **postinstall** only runs `electron-builder install-app-deps` (rebuilds **keytar** for the current Electron); it does **not** install sudoers.
+Artifacts land under `src-tauri/target/release/bundle/`.
 
 ### Sudo (FortiGate)
 
-`openfortivpn` must run as root. The packaged rule (broad, review before deploying) is in `resources/sudo/fortivpngui.sudoers`. Tighten user/host in production if needed:
+`openfortivpn` must run as root. The packaged rule is in `resources/sudo/`. Tighten user/host in production if needed:
 
 ```text
 # /etc/sudoers.d/fortivpngui
 youruser ALL=(root) NOPASSWD: /usr/bin/openfortivpn *
 ```
 
-The trailing **` * `** is important: the app invokes `sudo /usr/bin/openfortivpn -c /tmp/...` (plus flags). A rule without arguments often does **not** match, and you get password prompts or odd OTP behaviour.
-
-Inspect the installed drop-in: `sudo visudo -f /etc/sudoers.d/fortivpngui`.
+The trailing **` * `** is important: the app invokes `sudo /usr/bin/openfortivpn -c /tmp/...` (plus flags).
 
 ### FortiGate OTP and alternative auth
 
-- For **email/SMS OTP**, the gateway may need token mode instead of FortiToken Mobile push. In the profile editor, try **No FortiToken Mobile push** (`no-ftm-push`) and, if the token is slow, increase **OTP delay** (`otp-delay`, seconds).
-- **SAML login** (`saml-login`, openfortivpn ≥ 1.23): FortiVPN GUI opens the `Authenticate at '…'` URL in the default browser and waits for the redirect.
-- **SVPNCOOKIE** is sent with `--cookie-on-stdin` (never on argv) so the session cookie does not appear in the process list.
-- A username is not required when a cookie or SAML login is configured.
+- For **email/SMS OTP**, try **No FortiToken Mobile push** (`no-ftm-push`) and increase **OTP delay** if needed.
+- **SAML login** (`saml-login`, openfortivpn ≥ 1.23): the app opens the `Authenticate at '…'` URL in the default browser.
+- **SVPNCOOKIE** is sent with `--cookie-on-stdin` (never on argv).
 
 ---
 
 ## Import from OpenFortiGUI
 
-Use **Settings → Import** or the first-run wizard to copy `~/.openfortigui/vpnprofiles/*.conf` and `vpngroups/*.conf` into `~/.fortivpngui/`. You can also merge keys from `~/.openfortigui/main.conf` where supported.
+Use **Settings → Import** or the first-run wizard to copy `~/.openfortigui/vpnprofiles/*.conf` and `vpngroups/*.conf` into `~/.fortivpngui/`.
 
 ---
 
 ## Changelog in the app
 
-Release notes for packaging and humans live under [`docs/releases/`](docs/releases/). The in-app changelog dialog uses the same content keys in [`src/renderer/i18n/`](src/renderer/i18n/).
-
-When you add or change changelog content shown to users, bump **`CHANGELOG_REV`** in **both** [`shared/constants.ts`](shared/constants.ts) and [`electron/config.ts`](electron/config.ts) so the renderer and main process stay aligned.
-
----
-
-## Native module rebuild
-
-**keytar** is compiled for Electron via `electron-builder install-app-deps` (the `postinstall` script in `package.json`). After changing Electron version, run `npm install` again so the native binary matches.
+When you change in-app changelog content, bump **`CHANGELOG_REV`** in **both** [`shared/constants.ts`](shared/constants.ts) and [`src-tauri/src/config.rs`](src-tauri/src/config.rs).
 
 ---
 
 ## Third-party components
 
-This app bundles or depends on **Electron**, **React**, **Vite**, **Material UI**, **OverlayScrollbars**, **ini**, **keytar**, and the system tool **openfortivpn**. Their licences apply to those components, not to this repo’s MIT-licensed source as a whole.
+This app depends on **Tauri**, **Rust**, **React**, **Vite**, **Material UI**, **OverlayScrollbars**, and the system tool **openfortivpn**. Their licences apply to those components, not to this repo’s MIT-licensed source as a whole.

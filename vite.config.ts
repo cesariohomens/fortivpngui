@@ -23,5 +23,10 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true,
+    watch: {
+      ignored: ["**/src-tauri/**"],
+    },
   },
+  clearScreen: false,
+  envPrefix: ["VITE_", "TAURI_"],
 });
