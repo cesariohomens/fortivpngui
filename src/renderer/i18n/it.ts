@@ -207,6 +207,12 @@ export const it: Messages = {
   },
   changelog: {
     title: "Modifiche",
+    v051OtpPrompt:
+      "Corretto il dialogo OTP FortiGate che compariva solo dopo Ferma: openfortivpn stampa la richiesta del token senza a capo, quindi l'output della VPN viene ora letto a blocchi e il dialogo si apre non appena arriva la richiesta.",
+    v051OtpRetry:
+      "Richiedi nuovo OTP si riconnette senza token quando openfortivpn è già terminato, così viene emesso un nuovo codice invece di fallire con \"nessun processo VPN attivo\".",
+    v051Packaging:
+      "Nuovo pacchetto Flatpak (npm run dist:flatpak) accanto a .deb, .rpm e AppImage; l'output di build di Vite non è più versionato nel repository.",
     v050TauriRust:
       "Shell desktop riscritto in Rust con Tauri 2: il processo principale Electron è sostituito da un backend nativo, mantenendo il frontend React / Material UI.",
     v050SameUxConfig:

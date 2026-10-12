@@ -40,6 +40,11 @@
     <display_length compare="ge">800</display_length>
   </recommends>
   <releases>
+    <release version="0.5.1" date="2026-10-12">
+      <description>
+        <p>Fix the FortiGate OTP dialog only appearing after Stop; Request new OTP reconnects when openfortivpn has exited; Flatpak packaging.</p>
+      </description>
+    </release>
     <release version="0.5.0" date="2026-10-12">
       <description>
         <p>Tauri 2 / Rust desktop shell rewrite with .deb, .rpm, AppImage, and Flatpak packaging.</p>
