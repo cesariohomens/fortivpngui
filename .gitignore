@@ -1,7 +1,10 @@
 node_modules/
-dist-electron/
-release/
 *.log
 .DS_Store
 .env
 .env.*
+
+# Tauri
+src-tauri/target/
+src-tauri/icons/android/
+src-tauri/icons/ios/

@@ -246,12 +246,12 @@ export default function App() {
   const [groupOriginalName, setGroupOriginalName] = useState<string | null>(null);
   const [groupMembers, setGroupMembers] = useState<Set<string>>(new Set());
 
-  /** Electron does not support `window.prompt`; use the same MUI dialog pattern as Add/Edit VPN. */
+  /** Native `window.prompt` is unreliable in the webview; use the same MUI dialog pattern as Add/Edit VPN. */
   const [copyVpnOpen, setCopyVpnOpen] = useState(false);
   const [copyVpnSource, setCopyVpnSource] = useState<string | null>(null);
   const [copyVpnName, setCopyVpnName] = useState("");
 
-  /** Electron does not support `window.confirm`; delete confirmation uses our MUI dialog. */
+  /** Native `window.confirm` is unreliable in the webview; delete confirmation uses our MUI dialog. */
   const [deleteConfirm, setDeleteConfirm] = useState<{ kind: "vpn" | "group"; name: string } | null>(null);
 
   const [loginOpen, setLoginOpen] = useState(false);
@@ -339,7 +339,6 @@ export default function App() {
     setWizardUseStore(settings.use_system_password_store);
     if (settingsPromptsDone.current) return;
     settingsPromptsDone.current = true;
-    if (window.fvpnCapture?.enabled) return;
     if (!settings.setupwizard) setWizardOpen(true);
     if (settings.changelogrev_read < CHANGELOG_REV) setChangelogOpen(true);
   }, [settings, setThemeMode, setLanguage]);
@@ -606,60 +605,6 @@ export default function App() {
     setShowProfilePassword(false);
     setProfileOpen(true);
   };
-
-  useEffect(() => {
-    if (!window.fvpnCapture?.enabled) return;
-    window.__fvpnUi = {
-      setView,
-      setThemeMode,
-      setLanguage,
-      closeOverlays: () => {
-        setAboutOpen(false);
-        setChangelogOpen(false);
-        setWizardOpen(false);
-        setProfileOpen(false);
-        setGroupOpen(false);
-        setCopyVpnOpen(false);
-        setDeleteConfirm(null);
-        setDisconnectWarn(null);
-        setGwCertDlg(null);
-        setLoginOpen(false);
-        setImportResultText(null);
-        setNotifyText(null);
-        setProfileCtx(null);
-        setAddMenuAnchor(null);
-      },
-      openAbout: () => {
-        setChangelogOpen(false);
-        setWizardOpen(false);
-        setProfileOpen(false);
-        setAboutOpen(true);
-      },
-      openChangelog: () => {
-        setAboutOpen(false);
-        setWizardOpen(false);
-        setProfileOpen(false);
-        setChangelogOpen(true);
-      },
-      openWizard: (step = 0) => {
-        setAboutOpen(false);
-        setChangelogOpen(false);
-        setProfileOpen(false);
-        setWizardStep(step);
-        setWizardOpen(true);
-      },
-      openProfileEditor: () => {
-        setAboutOpen(false);
-        setChangelogOpen(false);
-        setWizardOpen(false);
-        openNewProfile();
-      },
-      refresh,
-    };
-    return () => {
-      delete window.__fvpnUi;
-    };
-  });
 
   const editProfile = (p: VpnProfile) => {
     if (p.origin === "global") return;
@@ -2050,6 +1995,20 @@ export default function App() {
           <List dense sx={{ px: 1, py: 0.5 }}>
             <ListItemButton sx={{ alignItems: "flex-start", py: 1.5 }}>
               <Box>
+                <Typography fontWeight={700}>0.5.0</Typography>
+                <Typography variant="body2" color={colors.muted} component="div" sx={{ mt: 0.5 }}>
+                  <Box component="ul" sx={{ m: 0, pl: 2.25 }}>
+                    <li>{t("changelog.v050TauriRust")}</li>
+                    <li>{t("changelog.v050SameUxConfig")}</li>
+                    <li>{t("changelog.v050SmallerRuntime")}</li>
+                    <li>{t("changelog.v050Tooling")}</li>
+                    <li>{t("changelog.v050Keyring")}</li>
+                  </Box>
+                </Typography>
+              </Box>
+            </ListItemButton>
+            <ListItemButton sx={{ alignItems: "flex-start", py: 1.5 }}>
+              <Box>
                 <Typography fontWeight={700}>0.4.0</Typography>
                 <Typography variant="body2" color={colors.muted} component="div" sx={{ mt: 0.5 }}>
                   <Box component="ul" sx={{ m: 0, pl: 2.25 }}>
@@ -2099,7 +2058,7 @@ export default function App() {
                     <li>Theme preference saved in <code>~/.fortivpngui/main.conf</code> (<code>gui/theme_mode</code>).</li>
                     <li>FortiGate OTP: one prompt per reconnect cycle; invalid OTP offers disconnect or request a new code (no prompt loop).</li>
                     <li>
-                      .deb install/upgrade: postinst stops running instances and removes <code>~/.config/fortivpngui</code> (Electron cache) so the new
+                      .deb install/upgrade: postinst stops running instances and removes <code>~/.config/fortivpngui</code> (legacy Electron cache) so the new
                       package loads without a reboot; VPN data in <code>~/.fortivpngui/</code> is kept.
                     </li>
                   </Box>
@@ -2110,7 +2069,7 @@ export default function App() {
               <Box>
                 <Typography fontWeight={700}>0.1.0</Typography>
                 <Typography variant="body2" color={colors.muted} sx={{ mt: 0.5 }}>
-                  Electron shell, OpenFortiGUI-compatible profiles/groups, Fortigate openfortivpn runner.
+                  Initial Electron shell, OpenFortiGUI-compatible profiles/groups, Fortigate openfortivpn runner.
                 </Typography>
               </Box>
             </ListItemButton>
@@ -2420,7 +2379,7 @@ export default function App() {
               ))}
             </Box>
             <Stack direction="row" flexWrap="wrap" justifyContent="center" gap={1} pt={0.5}>
-              {["Electron", "React", "Material UI"].map((tag) => (
+              {["Tauri", "Rust", "React", "Material UI"].map((tag) => (
                 <Chip
                   key={tag}
                   label={tag}

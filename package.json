@@ -1,8 +1,7 @@
 {
   "name": "fortivpngui",
-  "version": "0.4.0",
-  "description": "Desktop VPN GUI for FortiGate (openfortivpn) — Electron + Material UI",
-  "main": "dist-electron/electron/main.js",
+  "version": "0.5.0",
+  "description": "Desktop VPN GUI for FortiGate (openfortivpn) — Tauri + Material UI",
   "homepage": "https://github.com/cesariohomens/fortivpngui",
   "author": {
     "name": "Cesário Mil-Homens",
@@ -12,95 +11,39 @@
   "scripts": {
     "dev": "vite",
     "build:renderer": "tsc --noEmit -p tsconfig.json && vite build",
-    "build:electron": "tsc -p tsconfig.electron.json",
-    "build": "npm run build:renderer && npm run build:electron",
+    "build": "npm run build:renderer",
     "clean": "node scripts/clean-caches.mjs",
-    "start": "npm run clean && npm run build && electron --no-sandbox .",
-    "electron:dev": "concurrently -k \"vite\" \"wait-on http://localhost:5173 && npm run build:electron && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electron --no-sandbox .\"",
-    "dist": "npm run build && electron-builder --linux deb rpm",
-    "dist:deb": "npm run build && electron-builder --linux deb",
-    "dist:rpm": "npm run build && electron-builder --linux rpm",
-    "screenshots": "node scripts/capture-screenshots.mjs",
-    "postinstall": "electron-builder install-app-deps"
+    "tauri": "tauri",
+    "start": "cargo tauri build --debug && src-tauri/target/debug/fortivpngui",
+    "tauri:dev": "cargo tauri dev",
+    "tauri:build": "cargo tauri build",
+    "dist": "cargo tauri build --bundles deb,rpm,appimage",
+    "dist:deb": "cargo tauri build --bundles deb",
+    "dist:rpm": "cargo tauri build --bundles rpm",
+    "dist:appimage": "cargo tauri build --bundles appimage"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",
     "@mui/icons-material": "^6.4.0",
     "@mui/material": "^6.4.0",
-    "ini": "^5.0.0",
-    "keytar": "^7.9.0",
+    "@tauri-apps/api": "^2.5.0",
+    "@tauri-apps/plugin-dialog": "^2.2.0",
+    "@tauri-apps/plugin-notification": "^2.2.0",
+    "@tauri-apps/plugin-opener": "^2.2.0",
+    "@tauri-apps/plugin-shell": "^2.2.0",
     "overlayscrollbars": "^2.16.0",
     "overlayscrollbars-react": "^0.5.6",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
-    "@types/ini": "^4.1.1",
+    "@tauri-apps/cli": "^2.5.0",
     "@types/node": "^22.10.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.3.4",
-    "concurrently": "^9.1.0",
-    "cross-env": "^7.0.3",
-    "electron": "^33.2.0",
-    "electron-builder": "^25.1.8",
     "typescript": "^5.7.2",
-    "vite": "^6.0.3",
-    "wait-on": "^8.0.1"
-  },
-  "build": {
-    "appId": "com.cesariogarcia.fortivpngui",
-    "productName": "fortivpngui",
-    "asar": true,
-    "asarUnpack": [
-      "resources/sudo/**"
-    ],
-    "icon": "build/icons",
-    "directories": {
-      "output": "release"
-    },
-    "files": [
-      "dist/**/*",
-      "dist-electron/**/*",
-      "resources/**/*",
-      "build/icons/512x512.png"
-    ],
-    "linux": {
-      "target": [
-        "deb",
-        "rpm"
-      ],
-      "category": "Network",
-      "executableArgs": [
-        "--no-sandbox"
-      ],
-      "executableName": "fortivpngui",
-      "maintainer": "cesario@cesariogarcia.com",
-      "desktop": {
-        "Name": "FortiVPN GUI",
-        "StartupWMClass": "fortivpngui"
-      }
-    },
-    "deb": {
-      "depends": [
-        "openfortivpn",
-        "ppp",
-        "sudo",
-        "libsecret-1-0"
-      ],
-      "afterInstall": "resources/deb/postinst.sh",
-      "afterRemove": "resources/deb/postrm.sh"
-    },
-    "rpm": {
-      "depends": [
-        "openfortivpn",
-        "ppp",
-        "sudo",
-        "libsecret"
-      ],
-      "afterInstall": "resources/rpm/postinst.sh",
-      "afterRemove": "resources/rpm/postrm.sh"
-    }
+    "vite": "^6.0.3"
   }
 }
