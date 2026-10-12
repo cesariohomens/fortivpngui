@@ -146,7 +146,7 @@ export const en = {
     usePeerdns: "Use peerdns",
     usePeerdnsHelp: "Ask the peer for DNS servers and let pppd rewrite /etc/resolv.conf. May conflict with Set DNS.",
     acceptRemote: "Accept remote",
-    acceptRemoteHelp: "Required by pppd 2.5.0 and newer, breaks older pppd. Requires openfortivpn 1.21.0 or newer.",
+    acceptRemoteHelp: "Force pppd ipcp-accept-remote. Leave off to let openfortivpn choose from the installed pppd version (needed by pppd 2.5.0+, breaks older pppd). Requires openfortivpn 1.21.0 or newer.",
     logFile: "Log File",
     pluginFile: "Plugin File",
     ifname: "Ifname",
@@ -205,6 +205,8 @@ export const en = {
   },
   changelog: {
     title: "Changelog",
+    v052PppdAcceptRemote:
+      "Fixed tunnels dropping right after a successful login on systems with pppd 2.5 or newer (\"Peer refused to agree to his IP address\", then \"Timed out waiting for the ppp interface\"): the profile option Accept remote is only written when enabled, so openfortivpn picks ipcp-accept-remote automatically from the installed pppd version.",
     v051OtpPrompt:
       "Fixed the FortiGate OTP dialog only appearing after Stop: openfortivpn prints the token prompt without a newline, so the VPN output is now read in chunks and the prompt opens the dialog as soon as it arrives.",
     v051OtpRetry:

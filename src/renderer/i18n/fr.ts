@@ -148,7 +148,7 @@ export const fr: Messages = {
     usePeerdns: "Utiliser peerdns",
     usePeerdnsHelp: "Demander les serveurs DNS au pair et laisser pppd réécrire /etc/resolv.conf. Peut entrer en conflit avec Définir le DNS.",
     acceptRemote: "Accepter distant",
-    acceptRemoteHelp: "Requis par pppd 2.5.0 et plus récent, incompatible avec les versions antérieures. Nécessite openfortivpn 1.21.0 ou plus récent.",
+    acceptRemoteHelp: "Force ipcp-accept-remote de pppd. Laissez désactivé pour qu’openfortivpn choisisse selon la version de pppd installée (requis par pppd 2.5.0+, incompatible avec les versions antérieures). Nécessite openfortivpn 1.21.0 ou plus récent.",
     logFile: "Fichier journal",
     pluginFile: "Fichier plugin",
     ifname: "Ifname",
@@ -207,6 +207,8 @@ export const fr: Messages = {
   },
   changelog: {
     title: "Modifications",
+    v052PppdAcceptRemote:
+      "Correction des tunnels qui tombaient juste après une connexion réussie sur les systèmes avec pppd 2.5 ou plus récent (« Peer refused to agree to his IP address » puis « Timed out waiting for the ppp interface ») : l’option Accepter distant n’est écrite que lorsqu’elle est activée, afin qu’openfortivpn choisisse ipcp-accept-remote automatiquement selon la version de pppd installée.",
     v051OtpPrompt:
       "Correction du dialogue OTP FortiGate qui n'apparaissait qu'après Arrêter : openfortivpn affiche la demande de jeton sans saut de ligne, la sortie du VPN est donc désormais lue par blocs et le dialogue s'ouvre dès l'arrivée de la demande.",
     v051OtpRetry:

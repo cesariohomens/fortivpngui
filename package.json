@@ -1,6 +1,6 @@
 {
   "name": "fortivpngui",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "Desktop VPN GUI for FortiGate (openfortivpn) — Tauri + Material UI",
   "homepage": "https://github.com/cesariohomens/fortivpngui",
   "author": {

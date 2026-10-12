@@ -14,14 +14,14 @@
   <img src="https://img.shields.io/badge/Linux-rpm-FCC624?style=flat-square&logo=linux&logoColor=black" alt="Linux .rpm" />
   <img src="https://img.shields.io/badge/Linux-AppImage-FCC624?style=flat-square&logo=linux&logoColor=black" alt="Linux AppImage" />
   <img src="https://img.shields.io/badge/Linux-Flatpak-4A86CF?style=flat-square&logo=flathub&logoColor=white" alt="Linux Flatpak" />
-  <img src="https://img.shields.io/badge/version-0.5.1-0A7EA4?style=flat-square" alt="0.5.1" />
+  <img src="https://img.shields.io/badge/version-0.5.2-0A7EA4?style=flat-square" alt="0.5.2" />
 </p>
 
 # FortiVPN GUI
 
 Desktop VPN client for **FortiGate** (system [`openfortivpn`](https://github.com/adrienverge/openfortivpn)). The UI is **Tauri 2** (Rust), **React 19**, and **Material UI**. Profiles and groups use an **INI-style layout** under `~/.fortivpngui/`, compatible with **OpenFortiGUI** for import and day-to-day use.
 
-Current release: **[0.5.1](docs/releases/v0.5.1.md)** — see also [0.5.0](docs/releases/v0.5.0.md), [0.4.0](docs/releases/v0.4.0.md), [0.3.0](docs/releases/v0.3.0.md), [0.2.1](docs/releases/v0.2.1.md), and [0.2.0](docs/releases/v0.2.0.md).
+Current release: **[0.5.2](docs/releases/v0.5.2.md)** — see also [0.5.1](docs/releases/v0.5.1.md), [0.5.0](docs/releases/v0.5.0.md), [0.4.0](docs/releases/v0.4.0.md), [0.3.0](docs/releases/v0.3.0.md), [0.2.1](docs/releases/v0.2.1.md), and [0.2.0](docs/releases/v0.2.0.md).
 
 **Licence:** this repository is [MIT](LICENSE). Runtime dependencies (Tauri/WebKit, React, MUI, `openfortivpn`, etc.) have their own licences.
 
@@ -136,29 +136,29 @@ Artifacts land under `src-tauri/target/release/bundle/`:
 
 | Format | Typical path |
 |--------|----------------|
-| **.deb** | `bundle/deb/fortivpngui_0.5.1_amd64.deb` |
-| **.rpm** | `bundle/rpm/fortivpngui-0.5.1-1.x86_64.rpm` |
-| **AppImage** | `bundle/appimage/fortivpngui_0.5.1_amd64.AppImage` |
-| **Flatpak** | `bundle/flatpak/fortivpngui_0.5.1_x86_64.flatpak` |
+| **.deb** | `bundle/deb/fortivpngui_0.5.2_amd64.deb` |
+| **.rpm** | `bundle/rpm/fortivpngui-0.5.2-1.x86_64.rpm` |
+| **AppImage** | `bundle/appimage/fortivpngui_0.5.2_amd64.AppImage` |
+| **Flatpak** | `bundle/flatpak/fortivpngui_0.5.2_x86_64.flatpak` |
 
 ### Install examples
 
 ```bash
 # Debian / Ubuntu
-sudo apt install ./fortivpngui_0.5.1_amd64.deb
+sudo apt install ./fortivpngui_0.5.2_amd64.deb
 
 # Fedora / RHEL
-sudo dnf install ./fortivpngui-0.5.1-1.x86_64.rpm
+sudo dnf install ./fortivpngui-0.5.2-1.x86_64.rpm
 
 # openSUSE
-sudo zypper install ./fortivpngui-0.5.1-1.x86_64.rpm
+sudo zypper install ./fortivpngui-0.5.2-1.x86_64.rpm
 
 # AppImage
-chmod +x fortivpngui_0.5.1_amd64.AppImage
-./fortivpngui_0.5.1_amd64.AppImage
+chmod +x fortivpngui_0.5.2_amd64.AppImage
+./fortivpngui_0.5.2_amd64.AppImage
 
 # Flatpak (user install)
-flatpak install --user ./fortivpngui_0.5.1_x86_64.flatpak
+flatpak install --user ./fortivpngui_0.5.2_x86_64.flatpak
 flatpak run com.cesariogarcia.fortivpngui
 ```
 

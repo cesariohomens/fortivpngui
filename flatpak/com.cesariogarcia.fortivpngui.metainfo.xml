@@ -40,6 +40,11 @@
     <display_length compare="ge">800</display_length>
   </recommends>
   <releases>
+    <release version="0.5.2" date="2026-10-12">
+      <description>
+        <p>Fix tunnels dropping after login on pppd 2.5+: pppd-accept-remote is only written when the Accept remote option is enabled, so openfortivpn auto-detects it.</p>
+      </description>
+    </release>
     <release version="0.5.1" date="2026-10-12">
       <description>
         <p>Fix the FortiGate OTP dialog only appearing after Stop; Request new OTP reconnects when openfortivpn has exited; Flatpak packaging.</p>

@@ -3,7 +3,7 @@
 use std::path::{Path, PathBuf};
 
 /// Bump when changelog content changes (shown until user marks read). Keep in sync with `shared/constants.ts`.
-pub const CHANGELOG_REV: u32 = 14;
+pub const CHANGELOG_REV: u32 = 15;
 
 pub const DEFAULT_AES_KEY: &str = "yowp2IwTTRodgdWp";
 pub const DEFAULT_AES_IV: &str = "VoUT5n5ToogkmQU3";

@@ -219,11 +219,12 @@ fn build_openfortivpn_config(
             profile.check_virtual_desktop.trim().to_string(),
         );
     }
-    /* Upstream default depends on the pppd it was built against, so write both states. */
-    push(
-        "pppd-accept-remote",
-        if profile.pppd_accept_remote { "1" } else { "0" }.to_string(),
-    );
+    /* Upstream default is auto (-1): openfortivpn picks `ipcp-accept-remote` from the pppd version
+     * (required by pppd >= 2.5.0, breaks older pppd). Writing `0` disables that detection and makes
+     * pppd 2.5 fail with "Peer refused to agree to his IP address", so only force it on. */
+    if profile.pppd_accept_remote {
+        push("pppd-accept-remote", "1".to_string());
+    }
     if !profile.sni.trim().is_empty() {
         push("sni", profile.sni.trim().to_string());
     }
