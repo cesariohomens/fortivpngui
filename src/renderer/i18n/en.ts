@@ -205,6 +205,16 @@ export const en = {
   },
   changelog: {
     title: "Changelog",
+    v050TauriRust:
+      "Desktop shell rewritten in Rust with Tauri 2: the Electron main process is replaced by a native backend while keeping the React / Material UI frontend.",
+    v050SameUxConfig:
+      "Same UX and OpenFortiGUI-compatible config under ~/.fortivpngui/ (profiles, groups, tray, OTP, SAML, gateway certificates).",
+    v050SmallerRuntime:
+      "Smaller runtime footprint: no bundled Chromium; the UI runs in the system WebKitGTK webview.",
+    v050Tooling:
+      "New tooling: npm run tauri:dev for development, npm run dist / cargo tauri build for .deb and .rpm packages.",
+    v050Keyring:
+      "Optional OS password store uses the Rust keyring crate (libsecret) instead of Electron keytar.",
     v040FortigateOnly: "FortiGate only: Barracuda / barracudavpn support is removed.",
     v040ThemedScrollbars:
       "Native scrollbars are replaced with themed OverlayScrollbars (light and dark), including axis arrow buttons.",
@@ -219,7 +229,7 @@ export const en = {
     v040FullCliCoverage:
       "Every openfortivpn option that makes sense for a profile now has a field: SAML login (the browser opens automatically), SVPNCOOKIE, pinentry, bind to interface, and use resolvconf.",
     v040CachesAndScreenshots:
-      "npm start builds a debug Tauri binary and launches it; use npm run tauri:dev for hot reload during development.",
+      "npm start cleans build and Electron caches first; README screenshots can be regenerated with npm run screenshots in both dark and light themes.",
     v030NoAutoReconnect:
       "No silent auto-reconnect: with an empty or 0 reconnect interval, FortiVPN GUI stops retrying and leaves reconnecting to you.",
     v030DisconnectWarning:

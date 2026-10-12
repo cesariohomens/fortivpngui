@@ -12,14 +12,14 @@
   <a href="https://github.com/adrienverge/openfortivpn"><img src="https://img.shields.io/badge/openfortivpn-system-2ea44f?style=flat-square" alt="openfortivpn" /></a>
   <img src="https://img.shields.io/badge/Linux-deb-FCC624?style=flat-square&logo=linux&logoColor=black" alt="Linux .deb" />
   <img src="https://img.shields.io/badge/Linux-rpm-FCC624?style=flat-square&logo=linux&logoColor=black" alt="Linux .rpm" />
-  <img src="https://img.shields.io/badge/version-0.4.0-0A7EA4?style=flat-square" alt="0.4.0" />
+  <img src="https://img.shields.io/badge/version-0.5.0-0A7EA4?style=flat-square" alt="0.5.0" />
 </p>
 
 # FortiVPN GUI
 
 Desktop VPN client for **FortiGate** (system [`openfortivpn`](https://github.com/adrienverge/openfortivpn)). The UI is **Tauri 2** (Rust), **React 19**, and **Material UI**. Profiles and groups use an **INI-style layout** under `~/.fortivpngui/`, compatible with **OpenFortiGUI** for import and day-to-day use.
 
-Current release: **[0.4.0](docs/releases/v0.4.0.md)** — see also [0.3.0](docs/releases/v0.3.0.md), [0.2.1](docs/releases/v0.2.1.md), and [0.2.0](docs/releases/v0.2.0.md).
+Current release: **[0.5.0](docs/releases/v0.5.0.md)** — see also [0.4.0](docs/releases/v0.4.0.md), [0.3.0](docs/releases/v0.3.0.md), [0.2.1](docs/releases/v0.2.1.md), and [0.2.0](docs/releases/v0.2.0.md).
 
 **Licence:** this repository is [MIT](LICENSE). Runtime dependencies (Tauri/WebKit, React, MUI, `openfortivpn`, etc.) have their own licences.
 

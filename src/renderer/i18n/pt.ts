@@ -207,6 +207,16 @@ export const pt: Messages = {
   },
   changelog: {
     title: "Alterações",
+    v050TauriRust:
+      "Shell de ambiente reescrito em Rust com Tauri 2: o processo principal Electron é substituído por um backend nativo, mantendo o frontend React / Material UI.",
+    v050SameUxConfig:
+      "Mesma UX e configuração compatível com OpenFortiGUI em ~/.fortivpngui/ (perfis, grupos, tray, OTP, SAML, certificados do gateway).",
+    v050SmallerRuntime:
+      "Runtime mais leve: sem Chromium incluído; a UI corre no webview WebKitGTK do sistema.",
+    v050Tooling:
+      "Nova ferramenta: npm run tauri:dev para desenvolvimento, npm run dist / cargo tauri build para pacotes .deb e .rpm.",
+    v050Keyring:
+      "O armazenamento opcional de palavras-passe no SO usa a crate Rust keyring (libsecret) em vez do keytar do Electron.",
     v040FortigateOnly: "Apenas FortiGate: o suporte Barracuda / barracudavpn foi removido.",
     v040ThemedScrollbars:
       "As barras de deslocamento nativas são substituídas por OverlayScrollbars temáticas (claro e escuro), incluindo botões de seta nos eixos.",
@@ -221,7 +231,7 @@ export const pt: Messages = {
     v040FullCliCoverage:
       "Todas as opções do openfortivpn que fazem sentido num perfil passam a ter campo: login SAML (o browser abre automaticamente), SVPNCOOKIE, pinentry, associar à interface e usar resolvconf.",
     v040CachesAndScreenshots:
-      "O npm start compila um binário Tauri de debug e inicia-o; use npm run tauri:dev para hot reload durante o desenvolvimento.",
+      "O npm start limpa primeiro as caches de build e do Electron; as capturas do README regeneram-se com npm run screenshots nos temas escuro e claro.",
     v030NoAutoReconnect:
       "Sem reconexão automática silenciosa: com intervalo vazio ou 0, o FortiVPN GUI deixa de tentar e a reconexão passa a ser sua.",
     v030DisconnectWarning:

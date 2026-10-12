@@ -2050,6 +2050,20 @@ export default function App() {
           <List dense sx={{ px: 1, py: 0.5 }}>
             <ListItemButton sx={{ alignItems: "flex-start", py: 1.5 }}>
               <Box>
+                <Typography fontWeight={700}>0.5.0</Typography>
+                <Typography variant="body2" color={colors.muted} component="div" sx={{ mt: 0.5 }}>
+                  <Box component="ul" sx={{ m: 0, pl: 2.25 }}>
+                    <li>{t("changelog.v050TauriRust")}</li>
+                    <li>{t("changelog.v050SameUxConfig")}</li>
+                    <li>{t("changelog.v050SmallerRuntime")}</li>
+                    <li>{t("changelog.v050Tooling")}</li>
+                    <li>{t("changelog.v050Keyring")}</li>
+                  </Box>
+                </Typography>
+              </Box>
+            </ListItemButton>
+            <ListItemButton sx={{ alignItems: "flex-start", py: 1.5 }}>
+              <Box>
                 <Typography fontWeight={700}>0.4.0</Typography>
                 <Typography variant="body2" color={colors.muted} component="div" sx={{ mt: 0.5 }}>
                   <Box component="ul" sx={{ m: 0, pl: 2.25 }}>
@@ -2099,7 +2113,7 @@ export default function App() {
                     <li>Theme preference saved in <code>~/.fortivpngui/main.conf</code> (<code>gui/theme_mode</code>).</li>
                     <li>FortiGate OTP: one prompt per reconnect cycle; invalid OTP offers disconnect or request a new code (no prompt loop).</li>
                     <li>
-                      .deb install/upgrade: postinst stops running instances; WebKit/Tauri caches under the app data dir may be cleared so the new
+                      .deb install/upgrade: postinst stops running instances and removes <code>~/.config/fortivpngui</code> (legacy Electron cache) so the new
                       package loads without a reboot; VPN data in <code>~/.fortivpngui/</code> is kept.
                     </li>
                   </Box>
@@ -2110,7 +2124,7 @@ export default function App() {
               <Box>
                 <Typography fontWeight={700}>0.1.0</Typography>
                 <Typography variant="body2" color={colors.muted} sx={{ mt: 0.5 }}>
-                  Tauri/Rust shell, OpenFortiGUI-compatible profiles/groups, Fortigate openfortivpn runner.
+                  Initial Electron shell, OpenFortiGUI-compatible profiles/groups, Fortigate openfortivpn runner.
                 </Typography>
               </Box>
             </ListItemButton>

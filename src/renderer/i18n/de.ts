@@ -207,6 +207,16 @@ export const de: Messages = {
   },
   changelog: {
     title: "Änderungen",
+    v050TauriRust:
+      "Desktop-Shell in Rust mit Tauri 2 neu geschrieben: der Electron-Hauptprozess wird durch ein natives Backend ersetzt, die React-/Material-UI-Oberfläche bleibt.",
+    v050SameUxConfig:
+      "Gleiche UX und OpenFortiGUI-kompatible Konfiguration unter ~/.fortivpngui/ (Profile, Gruppen, Tray, OTP, SAML, Gateway-Zertifikate).",
+    v050SmallerRuntime:
+      "Kleinerer Runtime: kein gebündeltes Chromium; die UI läuft im System-WebKitGTK-Webview.",
+    v050Tooling:
+      "Neue Werkzeuge: npm run tauri:dev für die Entwicklung, npm run dist / cargo tauri build für .deb- und .rpm-Pakete.",
+    v050Keyring:
+      "Optionaler OS-Passwortspeicher nutzt die Rust-Crate keyring (libsecret) statt Electron keytar.",
     v040FortigateOnly: "Nur FortiGate: Barracuda-/barracudavpn-Unterstützung ist entfernt.",
     v040ThemedScrollbars:
       "Native Scrollleisten werden durch thematische OverlayScrollbars (hell und dunkel) ersetzt, inklusive Pfeilschaltflächen an den Achsen.",
@@ -221,7 +231,7 @@ export const de: Messages = {
     v040FullCliCoverage:
       "Alle openfortivpn-Optionen, die für ein Profil sinnvoll sind, haben jetzt ein Feld: SAML-Anmeldung (der Browser öffnet automatisch), SVPNCOOKIE, Pinentry, An Schnittstelle binden und Resolvconf verwenden.",
     v040CachesAndScreenshots:
-      "npm start baut ein Tauri-Debug-Binary und startet es; für Hot Reload in der Entwicklung npm run tauri:dev verwenden.",
+      "npm start bereinigt zuerst Build- und Electron-Caches; README-Screenshots lassen sich mit npm run screenshots in dunklem und hellem Theme neu erzeugen.",
     v030NoAutoReconnect:
       "Keine stille automatische Wiederverbindung: bei leerem Intervall oder 0 hört FortiVPN GUI auf, es zu versuchen, und überlässt Ihnen die Wiederverbindung.",
     v030DisconnectWarning:
