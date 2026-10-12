@@ -31,7 +31,7 @@ export interface FvpnScrollProps {
   defer?: boolean;
 }
 
-/** Themed OverlayScrollbars host — replaces native GTK/browser scrollbars on Linux Electron. */
+/** Themed OverlayScrollbars host — replaces native GTK/browser scrollbars on Linux. */
 export function FvpnScroll({ children, className, style, defer = true }: FvpnScrollProps) {
   return (
     <OverlayScrollbarsComponent

@@ -42,13 +42,20 @@
     "longDescription": "Desktop VPN client for FortiGate using openfortivpn — Tauri + React + Material UI",
     "linux": {
       "deb": {
-        "depends": ["openfortivpn", "ppp", "sudo", "libsecret-1-0"]
+        "depends": ["openfortivpn", "ppp", "sudo", "libsecret-1-0"],
+        "postInstallScript": "../resources/packaging/postinst.sh",
+        "postRemoveScript": "../resources/packaging/postrm-deb.sh"
       },
       "rpm": {
-        "depends": ["openfortivpn", "ppp", "sudo", "libsecret"]
+        "depends": ["openfortivpn", "ppp", "sudo", "libsecret"],
+        "postInstallScript": "../resources/packaging/postinst.sh",
+        "postRemoveScript": "../resources/packaging/postrm-rpm.sh"
       }
     },
-    "resources": ["../resources/sudo", "../resources/icon.svg"]
+    "resources": {
+      "../resources/sudo/fortivpngui.sudoers": "sudo/fortivpngui.sudoers",
+      "../resources/icon.svg": "icon.svg"
+    }
   },
   "plugins": {}
 }

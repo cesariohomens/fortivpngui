@@ -246,12 +246,12 @@ export default function App() {
   const [groupOriginalName, setGroupOriginalName] = useState<string | null>(null);
   const [groupMembers, setGroupMembers] = useState<Set<string>>(new Set());
 
-  /** Electron does not support `window.prompt`; use the same MUI dialog pattern as Add/Edit VPN. */
+  /** Native `window.prompt` is unreliable in the webview; use the same MUI dialog pattern as Add/Edit VPN. */
   const [copyVpnOpen, setCopyVpnOpen] = useState(false);
   const [copyVpnSource, setCopyVpnSource] = useState<string | null>(null);
   const [copyVpnName, setCopyVpnName] = useState("");
 
-  /** Electron does not support `window.confirm`; delete confirmation uses our MUI dialog. */
+  /** Native `window.confirm` is unreliable in the webview; delete confirmation uses our MUI dialog. */
   const [deleteConfirm, setDeleteConfirm] = useState<{ kind: "vpn" | "group"; name: string } | null>(null);
 
   const [loginOpen, setLoginOpen] = useState(false);
@@ -339,7 +339,6 @@ export default function App() {
     setWizardUseStore(settings.use_system_password_store);
     if (settingsPromptsDone.current) return;
     settingsPromptsDone.current = true;
-    if (window.fvpnCapture?.enabled) return;
     if (!settings.setupwizard) setWizardOpen(true);
     if (settings.changelogrev_read < CHANGELOG_REV) setChangelogOpen(true);
   }, [settings, setThemeMode, setLanguage]);
@@ -606,60 +605,6 @@ export default function App() {
     setShowProfilePassword(false);
     setProfileOpen(true);
   };
-
-  useEffect(() => {
-    if (!window.fvpnCapture?.enabled) return;
-    window.__fvpnUi = {
-      setView,
-      setThemeMode,
-      setLanguage,
-      closeOverlays: () => {
-        setAboutOpen(false);
-        setChangelogOpen(false);
-        setWizardOpen(false);
-        setProfileOpen(false);
-        setGroupOpen(false);
-        setCopyVpnOpen(false);
-        setDeleteConfirm(null);
-        setDisconnectWarn(null);
-        setGwCertDlg(null);
-        setLoginOpen(false);
-        setImportResultText(null);
-        setNotifyText(null);
-        setProfileCtx(null);
-        setAddMenuAnchor(null);
-      },
-      openAbout: () => {
-        setChangelogOpen(false);
-        setWizardOpen(false);
-        setProfileOpen(false);
-        setAboutOpen(true);
-      },
-      openChangelog: () => {
-        setAboutOpen(false);
-        setWizardOpen(false);
-        setProfileOpen(false);
-        setChangelogOpen(true);
-      },
-      openWizard: (step = 0) => {
-        setAboutOpen(false);
-        setChangelogOpen(false);
-        setProfileOpen(false);
-        setWizardStep(step);
-        setWizardOpen(true);
-      },
-      openProfileEditor: () => {
-        setAboutOpen(false);
-        setChangelogOpen(false);
-        setWizardOpen(false);
-        openNewProfile();
-      },
-      refresh,
-    };
-    return () => {
-      delete window.__fvpnUi;
-    };
-  });
 
   const editProfile = (p: VpnProfile) => {
     if (p.origin === "global") return;

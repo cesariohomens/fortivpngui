@@ -229,7 +229,7 @@ export const en = {
     v040FullCliCoverage:
       "Every openfortivpn option that makes sense for a profile now has a field: SAML login (the browser opens automatically), SVPNCOOKIE, pinentry, bind to interface, and use resolvconf.",
     v040CachesAndScreenshots:
-      "npm start cleans build and Electron caches first; README screenshots can be regenerated with npm run screenshots in both dark and light themes.",
+      "npm start cleaned build caches before launch; README screenshots were captured for both dark and light themes.",
     v030NoAutoReconnect:
       "No silent auto-reconnect: with an empty or 0 reconnect interval, FortiVPN GUI stops retrying and leaves reconnecting to you.",
     v030DisconnectWarning:

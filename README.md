@@ -81,7 +81,7 @@ PNG files live in [`docs/images/`](docs/images/).
 | `src-tauri/` | Rust/Tauri backend: IPC commands, tray, VPN runner, profiles/groups/settings/import |
 | `src/renderer/` | React UI (`App.tsx`), `fvpn-bridge.ts`, i18n, Vite entry |
 | `shared/` | Types and constants shared at build time |
-| `resources/` | Packaged assets: `sudo/` template, `deb/` and `rpm/` maintainer scripts, icons |
+| `resources/` | Packaged assets: `sudo/` template, `packaging/` maintainer scripts, icons |
 | `docs/releases/` | Human-readable release notes |
 | `docs/images/` | README screenshots |
 

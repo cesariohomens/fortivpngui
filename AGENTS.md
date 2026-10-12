@@ -21,7 +21,7 @@ Main binary after build: `src-tauri/target/release/fortivpngui` (or `debug/`).
 | `src-tauri/` | Rust/Tauri main process: IPC commands, tray, VPN runners, settings, import |
 | `src/renderer/` | React UI (`App.tsx`), `fvpn-bridge.ts` (Tauri ↔ `window.fvpn`), i18n, theme |
 | `shared/` | Types, constants, theme tokens (shared at build time) |
-| `resources/` | Sudoers template, deb/rpm maintainer scripts, icons |
+| `resources/` | Sudoers template, Tauri packaging scripts (`packaging/`), icons |
 | `docs/` | Release notes, screenshots |
 
 Bump **`CHANGELOG_REV`** in both `shared/constants.ts` and `src-tauri/src/config.rs` when in-app changelog content changes.

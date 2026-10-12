@@ -1,5 +1,5 @@
 /**
- * Electron + MUI: closing a `Menu` / `Popover` in the same synchronous turn as opening
+ * Webview + MUI: closing a `Menu` / `Popover` in the same synchronous turn as opening
  * a `Dialog` (or focusing an input inside it) often leaves inputs non-interactive.
  * Always defer that handoff by at least one frame.
  */

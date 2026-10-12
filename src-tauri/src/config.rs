@@ -59,7 +59,7 @@ pub mod paths {
     use super::{expand_home, home_dir};
     use std::path::PathBuf;
 
-    /// Override with `FORTIVPNGUI_CONFIG_DIR` for tests / screenshot capture (isolated from `~/.fortivpngui`).
+    /// Override with `FORTIVPNGUI_CONFIG_DIR` for tests (isolated from `~/.fortivpngui`).
     pub fn base_dir() -> PathBuf {
         if let Ok(v) = std::env::var("FORTIVPNGUI_CONFIG_DIR") {
             let t = v.trim();

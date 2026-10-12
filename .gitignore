@@ -1,6 +1,4 @@
 node_modules/
-dist-electron/
-release/
 *.log
 .DS_Store
 .env
@@ -8,8 +6,5 @@ release/
 
 # Tauri
 src-tauri/target/
-
-
-# Mobile icon packs unused for Linux desktop
 src-tauri/icons/android/
 src-tauri/icons/ios/

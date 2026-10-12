@@ -1,5 +1,5 @@
 /**
- * Tauri bridge exposing `window.fvpn` with the same surface as the Electron preload.
+ * Tauri bridge exposing `window.fvpn` (invoke + events) to the React UI.
  */
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
@@ -76,13 +76,9 @@ const fvpn = {
 declare global {
   interface Window {
     fvpn: typeof fvpn;
-    fvpnCapture?: { enabled: boolean };
   }
 }
 
 window.fvpn = fvpn;
-window.fvpnCapture = {
-  enabled: Boolean(import.meta.env.VITE_FORTIVPNGUI_CAPTURE_SCREENSHOTS),
-};
 
 export {};

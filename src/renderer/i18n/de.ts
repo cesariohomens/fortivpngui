@@ -231,7 +231,7 @@ export const de: Messages = {
     v040FullCliCoverage:
       "Alle openfortivpn-Optionen, die für ein Profil sinnvoll sind, haben jetzt ein Feld: SAML-Anmeldung (der Browser öffnet automatisch), SVPNCOOKIE, Pinentry, An Schnittstelle binden und Resolvconf verwenden.",
     v040CachesAndScreenshots:
-      "npm start bereinigt zuerst Build- und Electron-Caches; README-Screenshots lassen sich mit npm run screenshots in dunklem und hellem Theme neu erzeugen.",
+      "npm start bereinigte Build-Caches vor dem Start; README-Screenshots wurden in dunklem und hellem Theme aufgenommen.",
     v030NoAutoReconnect:
       "Keine stille automatische Wiederverbindung: bei leerem Intervall oder 0 hört FortiVPN GUI auf, es zu versuchen, und überlässt Ihnen die Wiederverbindung.",
     v030DisconnectWarning:
