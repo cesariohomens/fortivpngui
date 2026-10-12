@@ -17,10 +17,11 @@
     "start": "cargo tauri build --debug && src-tauri/target/debug/fortivpngui",
     "tauri:dev": "cargo tauri dev",
     "tauri:build": "cargo tauri build",
-    "dist": "cargo tauri build --bundles deb,rpm,appimage",
+    "dist": "cargo tauri build --bundles deb,rpm,appimage && npm run dist:flatpak",
     "dist:deb": "cargo tauri build --bundles deb",
     "dist:rpm": "cargo tauri build --bundles rpm",
-    "dist:appimage": "cargo tauri build --bundles appimage"
+    "dist:appimage": "cargo tauri build --bundles appimage",
+    "dist:flatpak": "bash scripts/dist-flatpak.sh"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

@@ -1,0 +1,53 @@
+# Local Flatpak built from the Tauri .deb (see scripts/dist-flatpak.sh).
+# Runtime matches Tauri's documented GNOME stack for WebKitGTK apps.
+id: com.cesariogarcia.fortivpngui
+runtime: org.gnome.Platform
+runtime-version: "47"
+sdk: org.gnome.Sdk
+command: fortivpngui
+
+finish-args:
+  - --share=ipc
+  - --share=network
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --device=dri
+  - --talk-name=org.freedesktop.Notifications
+  - --talk-name=org.freedesktop.secrets
+  - --talk-name=org.kde.StatusNotifierWatcher
+  - --filesystem=xdg-run/tray-icon:create
+  - --filesystem=home
+  # Allow spawning host openfortivpn/sudo (VPN cannot run fully inside the sandbox).
+  - --talk-name=org.freedesktop.Flatpak
+
+modules:
+  - name: fortivpngui
+    buildsystem: simple
+    sources:
+      - type: file
+        path: com.cesariogarcia.fortivpngui.metainfo.xml
+      - type: file
+        path: ../src-tauri/target/release/bundle/deb/fortivpngui_0.5.0_amd64.deb
+        only-arches: [x86_64]
+    build-commands:
+      - set -e
+      - mkdir deb-extract
+      - ar -x *.deb --output deb-extract
+      - tar -C deb-extract -xf deb-extract/data.tar.gz
+      - install -Dm755 deb-extract/usr/bin/fortivpngui /app/bin/fortivpngui
+      - mkdir -p /app/lib/fortivpngui
+      - cp -a deb-extract/usr/lib/fortivpngui/. /app/lib/fortivpngui/
+      - find /app/lib/fortivpngui -type f -exec chmod 644 {} \;
+      - find /app/lib/fortivpngui -type d -exec chmod 755 {} \;
+      - |
+        set -e
+        sed -e 's/^Icon=.*/Icon=com.cesariogarcia.fortivpngui/' \
+            -e 's/^Name=.*/Name=FortiVPN GUI/' \
+            deb-extract/usr/share/applications/fortivpngui.desktop \
+          > com.cesariogarcia.fortivpngui.desktop
+        install -Dm644 com.cesariogarcia.fortivpngui.desktop /app/share/applications/com.cesariogarcia.fortivpngui.desktop
+        install -Dm644 deb-extract/usr/share/icons/hicolor/32x32/apps/fortivpngui.png /app/share/icons/hicolor/32x32/apps/com.cesariogarcia.fortivpngui.png
+        install -Dm644 deb-extract/usr/share/icons/hicolor/128x128/apps/fortivpngui.png /app/share/icons/hicolor/128x128/apps/com.cesariogarcia.fortivpngui.png
+        install -Dm644 "deb-extract/usr/share/icons/hicolor/256x256@2/apps/fortivpngui.png" /app/share/icons/hicolor/256x256@2/apps/com.cesariogarcia.fortivpngui.png
+        install -Dm644 deb-extract/usr/share/icons/hicolor/512x512/apps/fortivpngui.png /app/share/icons/hicolor/512x512/apps/com.cesariogarcia.fortivpngui.png
+        install -Dm644 com.cesariogarcia.fortivpngui.metainfo.xml /app/share/metainfo/com.cesariogarcia.fortivpngui.metainfo.xml

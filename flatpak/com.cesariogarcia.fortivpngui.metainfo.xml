@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.cesariogarcia.fortivpngui</id>
+  <launchable type="desktop-id">com.cesariogarcia.fortivpngui.desktop</launchable>
+  <name>FortiVPN GUI</name>
+  <developer id="com.cesariogarcia">
+    <name>Cesário Mil-Homens</name>
+  </developer>
+  <summary>Desktop VPN client for FortiGate (openfortivpn)</summary>
+  <metadata_license>MIT</metadata_license>
+  <project_license>MIT</project_license>
+  <url type="homepage">https://git.cesariogarcia.com/cesario/fortivpngui</url>
+  <description>
+    <p>
+      FortiVPN GUI is a Linux desktop VPN client for FortiGate gateways.
+      It uses the system openfortivpn binary and stores OpenFortiGUI-compatible
+      INI profiles under ~/.fortivpngui/.
+    </p>
+    <p>
+      The Flatpak UI runs sandboxed; openfortivpn, ppp, and sudo must be
+      available on the host. Install the included sudoers drop-in on the host
+      (see package documentation) so passwordless openfortivpn works.
+    </p>
+  </description>
+  <categories>
+    <category>Network</category>
+    <category>Utility</category>
+  </categories>
+  <keywords>
+    <keyword>VPN</keyword>
+    <keyword>FortiGate</keyword>
+    <keyword>openfortivpn</keyword>
+  </keywords>
+  <content_rating type="oars-1.1"/>
+  <supports>
+    <control>pointing</control>
+    <control>keyboard</control>
+  </supports>
+  <recommends>
+    <display_length compare="ge">800</display_length>
+  </recommends>
+  <releases>
+    <release version="0.5.0" date="2026-10-12">
+      <description>
+        <p>Tauri 2 / Rust desktop shell rewrite with .deb, .rpm, AppImage, and Flatpak packaging.</p>
+      </description>
+    </release>
+  </releases>
+  <update_contact>cesario@cesariogarcia.com</update_contact>
+</component>
