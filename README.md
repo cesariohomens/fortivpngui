@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="build/icons/512x512.png" width="112" height="112" alt="FortiVPN GUI logo" />
+  <img src="src-tauri/icons/512x512.png" width="112" height="112" alt="FortiVPN GUI logo" />
 </p>
 
 <p align="center">
@@ -12,6 +12,8 @@
   <a href="https://github.com/adrienverge/openfortivpn"><img src="https://img.shields.io/badge/openfortivpn-system-2ea44f?style=flat-square" alt="openfortivpn" /></a>
   <img src="https://img.shields.io/badge/Linux-deb-FCC624?style=flat-square&logo=linux&logoColor=black" alt="Linux .deb" />
   <img src="https://img.shields.io/badge/Linux-rpm-FCC624?style=flat-square&logo=linux&logoColor=black" alt="Linux .rpm" />
+  <img src="https://img.shields.io/badge/Linux-AppImage-FCC624?style=flat-square&logo=linux&logoColor=black" alt="Linux AppImage" />
+  <img src="https://img.shields.io/badge/Linux-Flatpak-4A86CF?style=flat-square&logo=flathub&logoColor=white" alt="Linux Flatpak" />
   <img src="https://img.shields.io/badge/version-0.5.0-0A7EA4?style=flat-square" alt="0.5.0" />
 </p>
 
@@ -59,7 +61,7 @@ PNG files live in [`docs/images/`](docs/images/).
 - **Tray** on Linux: quick connect/disconnect, open main window, Settings, quit.
 - **Main window close** hides to tray; orphan temp configs under `TMPDIR/fortivpngui` are swept without stopping active tunnels.
 - **Settings**: paths, AES key/IV, password manager (libsecret / keyring), notifications, search, theme/language, import/merge from OpenFortiGUI.
-- **Packages**: `.deb` and `.rpm` via `npm run dist`.
+- **Packages**: `.deb`, `.rpm`, **AppImage**, and **Flatpak** via `npm run dist`.
 
 ---
 
@@ -71,6 +73,8 @@ PNG files live in [`docs/images/`](docs/images/).
 | **Runtime (Linux)** | `openfortivpn`, `ppp`, `sudo` |
 | **.deb install** | Same as runtime; **`libsecret-1-0`** for optional OS keychain storage |
 | **.rpm install** | Same as runtime; **`libsecret`** for optional OS keychain storage |
+| **AppImage** | Same as runtime; FUSE / `appimagetool` only needed to *build* |
+| **Flatpak** | Host `openfortivpn`, `ppp`, and `sudo` (VPN cannot run fully inside the sandbox); `flatpak` / `flatpak-builder` + GNOME Platform **47** to *build* |
 
 ---
 
@@ -82,6 +86,8 @@ PNG files live in [`docs/images/`](docs/images/).
 | `src/renderer/` | React UI (`App.tsx`), `fvpn-bridge.ts`, i18n, Vite entry |
 | `shared/` | Types and constants shared at build time |
 | `resources/` | Packaged assets: `sudo/` template, `packaging/` maintainer scripts, icons |
+| `flatpak/` | Flatpak manifest and AppStream metainfo |
+| `scripts/` | Packaging helpers (e.g. `dist-flatpak.sh`) |
 | `docs/releases/` | Human-readable release notes |
 | `docs/images/` | README screenshots |
 
@@ -99,7 +105,7 @@ npm start             # debug build + run binary
 Production-like local run:
 
 ```bash
-npm run tauri:build   # release binary + deb/rpm under src-tauri/target/release/
+npm run tauri:build   # release binary (+ default bundles) under src-tauri/target/release/
 ```
 
 ---
@@ -116,16 +122,47 @@ Paths are created on first run.
 
 ---
 
-## Linux packages (.deb and .rpm)
+## Linux packages
 
 ```bash
-npm run dist           # .deb + .rpm + AppImage
+npm run dist           # .deb + .rpm + AppImage + Flatpak
 npm run dist:deb       # .deb only
-npm run dist:rpm       # .rpm only
-npm run dist:appimage  # AppImage only
+npm run dist:rpm       # .rpm only (needs rpmbuild)
+npm run dist:appimage  # AppImage only (needs appimagetool + squashfs-tools)
+npm run dist:flatpak   # Flatpak only (needs an existing .deb + flatpak-builder)
 ```
 
-Artifacts land under `src-tauri/target/release/bundle/` (`deb/`, `rpm/`, `appimage/`).
+Artifacts land under `src-tauri/target/release/bundle/`:
+
+| Format | Typical path |
+|--------|----------------|
+| **.deb** | `bundle/deb/fortivpngui_0.5.0_amd64.deb` |
+| **.rpm** | `bundle/rpm/fortivpngui-0.5.0-1.x86_64.rpm` |
+| **AppImage** | `bundle/appimage/fortivpngui_0.5.0_amd64.AppImage` |
+| **Flatpak** | `bundle/flatpak/fortivpngui_0.5.0_x86_64.flatpak` |
+
+### Install examples
+
+```bash
+# Debian / Ubuntu
+sudo apt install ./fortivpngui_0.5.0_amd64.deb
+
+# Fedora / RHEL
+sudo dnf install ./fortivpngui-0.5.0-1.x86_64.rpm
+
+# openSUSE
+sudo zypper install ./fortivpngui-0.5.0-1.x86_64.rpm
+
+# AppImage
+chmod +x fortivpngui_0.5.0_amd64.AppImage
+./fortivpngui_0.5.0_amd64.AppImage
+
+# Flatpak (user install)
+flatpak install --user ./fortivpngui_0.5.0_x86_64.flatpak
+flatpak run com.cesariogarcia.fortivpngui
+```
+
+`.deb` / `.rpm` install the sudoers drop-in automatically. For **AppImage** and **Flatpak**, install the host sudoers rule yourself (see below) and keep `openfortivpn` on the host.
 
 ### Sudo (FortiGate)
 
